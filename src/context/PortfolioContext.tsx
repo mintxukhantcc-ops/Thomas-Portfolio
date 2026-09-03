@@ -261,45 +261,47 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       if (res.ok) {
         setIsServerSynced(true);
         return true;
+      } else if (res.status === 405 || res.status === 404) {
+        // Static hosting environment (e.g. Cloudflare Pages or GitHub Pages)
+        // LocalStorage is already synchronized and active
+        setIsServerSynced(true);
+        return true;
       }
-    } catch (err) {
-      console.warn('[Server Sync] Offline or server not responding:', err);
+    } catch {
+      // LocalStorage remains the primary persistent store
     }
     return false;
   };
 
-  // Debounced auto-sync to server on changes
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      syncWithServer();
-    }, 1500);
-    return () => clearTimeout(timer);
-  }, [profile, projects, services, skills, prompts, experience, settings]);
-
-  // Initial load from backend if available
+  // Initial load from backend if available (read-only)
   useEffect(() => {
     const loadServerData = async () => {
       try {
-        const res = await fetch('/api/portfolio');
+        const res = await fetch('/api/portfolio', {
+          headers: { Accept: 'application/json' },
+        });
         if (res.ok) {
-          const json = await res.json();
-          if (json.success && json.data) {
-            const d = json.data;
-            // Only adopt server data if localStorage was empty or default
-            const hasLocalCustomization = Boolean(localStorage.getItem(STORAGE_KEYS.PROJECTS));
-            if (!hasLocalCustomization) {
-              if (d.profile) setProfile(d.profile);
-              if (d.projects) setProjects(d.projects);
-              if (d.services) setServices(d.services);
-              if (d.skills) setSkills(d.skills);
-              if (d.prompts) setPrompts(d.prompts);
-              if (d.experience) setExperience(d.experience);
-              if (d.settings) setSettings(d.settings);
+          const contentType = res.headers.get('content-type') || '';
+          if (contentType.includes('application/json')) {
+            const json = await res.json();
+            if (json.success && json.data) {
+              const d = json.data;
+              // Only adopt server data if localStorage was empty or default
+              const hasLocalCustomization = Boolean(localStorage.getItem(STORAGE_KEYS.PROJECTS));
+              if (!hasLocalCustomization) {
+                if (d.profile) setProfile(d.profile);
+                if (d.projects) setProjects(d.projects);
+                if (d.services) setServices(d.services);
+                if (d.skills) setSkills(d.skills);
+                if (d.prompts) setPrompts(d.prompts);
+                if (d.experience) setExperience(d.experience);
+                if (d.settings) setSettings(d.settings);
+              }
+              setIsServerSynced(true);
             }
-            setIsServerSynced(true);
           }
         }
-      } catch (err) {
+      } catch {
         // Silent fallback to localStorage
       }
     };
