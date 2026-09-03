@@ -95,6 +95,7 @@ export interface ProfileData {
   supportingStatement: string;
   positioning: string;
   portraitUrl: string;
+  avatarUrl?: string;
   statusText: string;
   featureTags: string[];
   email: string;

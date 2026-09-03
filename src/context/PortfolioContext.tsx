@@ -19,6 +19,39 @@ import {
   initialPrompts,
 } from '../data/initialData';
 
+/**
+ * Converts Google Drive sharing or view URLs to direct image CDN links (lh3.googleusercontent.com).
+ */
+export function getDirectDriveUrl(url?: string): string {
+  if (!url) return '';
+  const trimmed = url.trim();
+
+  // If already an lh3 direct link
+  if (trimmed.includes('lh3.googleusercontent.com/d/')) {
+    return trimmed;
+  }
+
+  // Pattern 1: drive.google.com/file/d/<FILE_ID>/view...
+  const fileDMatch = trimmed.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (fileDMatch && fileDMatch[1]) {
+    return `https://lh3.googleusercontent.com/d/${fileDMatch[1]}`;
+  }
+
+  // Pattern 2: drive.google.com/(open|uc)?id=<FILE_ID>
+  const idMatch = trimmed.match(/drive\.google\.com\/(?:open|uc)\?[^#]*id=([a-zA-Z0-9_-]+)/);
+  if (idMatch && idMatch[1]) {
+    return `https://lh3.googleusercontent.com/d/${idMatch[1]}`;
+  }
+
+  // Pattern 3: drive.google.com/thumbnail?id=<FILE_ID>
+  const thumbMatch = trimmed.match(/drive\.google\.com\/thumbnail\?[^#]*id=([a-zA-Z0-9_-]+)/);
+  if (thumbMatch && thumbMatch[1]) {
+    return `https://lh3.googleusercontent.com/d/${thumbMatch[1]}`;
+  }
+
+  return trimmed;
+}
+
 interface PortfolioContextType {
   profile: ProfileData;
   projects: Project[];
@@ -33,11 +66,12 @@ interface PortfolioContextType {
   setSelectedProjectId: (id: string | null) => void;
   isAdminOpen: boolean;
   setIsAdminOpen: (open: boolean) => void;
-  
-  // Admin Mutators
+
+  // Real-time Admin Mutators with Immediate Persistence
   updateProfile: (data: Partial<ProfileData>) => void;
   updateSettings: (data: Partial<PortfolioSettings>) => void;
   saveProject: (project: Project) => void;
+  updateProjectField: <K extends keyof Project>(id: string, field: K, value: Project[K]) => void;
   deleteProject: (id: string) => void;
   reorderProjects: (projects: Project[]) => void;
   saveService: (service: Service) => void;
@@ -66,13 +100,32 @@ const STORAGE_KEYS = {
   SETTINGS: 'mtk_portfolio_settings_v3',
 };
 
+// Safe synchronous localStorage writer
+const persistStorage = <T,>(key: string, data: T) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (err) {
+    console.error(`[Storage Sync Error] Failed to persist ${key}:`, err);
+  }
+};
+
 const PortfolioContext = createContext<PortfolioContextType | undefined>(undefined);
 
 export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [profile, setProfile] = useState<ProfileData>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.PROFILE);
-      return saved ? JSON.parse(saved) : initialProfile;
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.portraitUrl) {
+          parsed.portraitUrl = getDirectDriveUrl(parsed.portraitUrl);
+        }
+        if (parsed.avatarUrl) {
+          parsed.avatarUrl = getDirectDriveUrl(parsed.avatarUrl);
+        }
+        return parsed;
+      }
+      return initialProfile;
     } catch {
       return initialProfile;
     }
@@ -81,7 +134,18 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [projects, setProjects] = useState<Project[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.PROJECTS);
-      return saved ? JSON.parse(saved) : initialProjects;
+      if (saved) {
+        const list = JSON.parse(saved) as Project[];
+        return list.map((p) => ({
+          ...p,
+          heroImage: getDirectDriveUrl(p.heroImage),
+          images: p.images?.map((img) => ({
+            ...img,
+            url: getDirectDriveUrl(img.url),
+          })) || [],
+        }));
+      }
+      return initialProjects;
     } catch {
       return initialProjects;
     }
@@ -136,71 +200,65 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [isAdminOpen, setIsAdminOpen] = useState<boolean>(false);
 
-  // Sync to localStorage
+  // Synchronous background sync effects
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(profile));
-    } catch (e) {
-      console.error(e);
-    }
+    persistStorage(STORAGE_KEYS.PROFILE, profile);
   }, [profile]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.PROJECTS, JSON.stringify(projects));
-    } catch (e) {
-      console.error(e);
-    }
+    persistStorage(STORAGE_KEYS.PROJECTS, projects);
   }, [projects]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.SERVICES, JSON.stringify(services));
-    } catch (e) {
-      console.error(e);
-    }
+    persistStorage(STORAGE_KEYS.SERVICES, services);
   }, [services]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.SKILLS, JSON.stringify(skills));
-    } catch (e) {
-      console.error(e);
-    }
+    persistStorage(STORAGE_KEYS.SKILLS, skills);
   }, [skills]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.PROMPTS, JSON.stringify(prompts));
-    } catch (e) {
-      console.error(e);
-    }
+    persistStorage(STORAGE_KEYS.PROMPTS, prompts);
   }, [prompts]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.EXPERIENCE, JSON.stringify(experience));
-    } catch (e) {
-      console.error(e);
-    }
+    persistStorage(STORAGE_KEYS.EXPERIENCE, experience);
   }, [experience]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
-    } catch (e) {
-      console.error(e);
-    }
+    persistStorage(STORAGE_KEYS.SETTINGS, settings);
   }, [settings]);
 
-  // Handle URL hashtag or query navigation
+  // Handle URL hashtag navigation with deep-linking support for projects
   useEffect(() => {
     const handleHash = () => {
-      const hash = window.location.hash.replace('#', '') as ActiveSection;
-      if (['about', 'skills', 'projects', 'services', 'prompts', 'experience', 'contact'].includes(hash)) {
-        setActiveSection(hash);
-      } else if (hash === 'home' || !hash) {
+      const rawHash = window.location.hash.replace(/^#\/?/, '').trim();
+      if (!rawHash || rawHash === 'home') {
         setActiveSection('home');
+        setSelectedProjectId(null);
+        return;
+      }
+
+      if (rawHash.startsWith('projects/') || rawHash.startsWith('project/')) {
+        const pId = rawHash.replace(/^(?:projects|project)\//, '');
+        setActiveSection('projects');
+        setSelectedProjectId(pId || null);
+        return;
+      }
+
+      if (rawHash.startsWith('project=')) {
+        const pId = rawHash.replace(/^project=/, '');
+        setActiveSection('projects');
+        setSelectedProjectId(pId || null);
+        return;
+      }
+
+      const validSections: ActiveSection[] = ['about', 'skills', 'projects', 'services', 'prompts', 'experience', 'contact'];
+      if (validSections.includes(rawHash as ActiveSection)) {
+        setActiveSection(rawHash as ActiveSection);
+        if (rawHash !== 'projects') {
+          setSelectedProjectId(null);
+        }
       }
     };
     handleHash();
@@ -208,96 +266,198 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return () => window.removeEventListener('hashchange', handleHash);
   }, []);
 
+  const handleSetActiveSection = (section: ActiveSection) => {
+    setActiveSection(section);
+    if (section === 'home') {
+      if (window.location.hash) {
+        history.pushState(null, '', window.location.pathname + window.location.search);
+      }
+    } else if (section === 'projects') {
+      if (selectedProjectId) {
+        window.location.hash = `projects/${selectedProjectId}`;
+      } else {
+        window.location.hash = 'projects';
+      }
+    } else {
+      window.location.hash = section;
+    }
+  };
+
+  const handleSetSelectedProjectId = (id: string | null) => {
+    setSelectedProjectId(id);
+    if (id) {
+      window.location.hash = `projects/${id}`;
+    } else if (activeSection === 'projects') {
+      window.location.hash = 'projects';
+    }
+  };
+
+  // Synchronous, reactive state setters that guarantee zero data loss
   const updateProfile = (data: Partial<ProfileData>) => {
-    setProfile((prev) => ({ ...prev, ...data }));
+    setProfile((prev) => {
+      const cleanedData = { ...data };
+      if (cleanedData.portraitUrl) {
+        cleanedData.portraitUrl = getDirectDriveUrl(cleanedData.portraitUrl);
+      }
+      if (cleanedData.avatarUrl) {
+        cleanedData.avatarUrl = getDirectDriveUrl(cleanedData.avatarUrl);
+      }
+      const next = { ...prev, ...cleanedData };
+      persistStorage(STORAGE_KEYS.PROFILE, next);
+      return next;
+    });
   };
 
   const updateSettings = (data: Partial<PortfolioSettings>) => {
-    setSettings((prev) => ({ ...prev, ...data }));
+    setSettings((prev) => {
+      const next = { ...prev, ...data };
+      persistStorage(STORAGE_KEYS.SETTINGS, next);
+      return next;
+    });
   };
 
   const saveProject = (proj: Project) => {
+    const cleanedProj = {
+      ...proj,
+      heroImage: getDirectDriveUrl(proj.heroImage),
+      images: proj.images?.map((img) => ({
+        ...img,
+        url: getDirectDriveUrl(img.url),
+      })) || [],
+    };
+
     setProjects((prev) => {
-      const idx = prev.findIndex((p) => p.id === proj.id);
+      const idx = prev.findIndex((p) => p.id === cleanedProj.id);
+      let next: Project[];
       if (idx >= 0) {
-        const next = [...prev];
-        next[idx] = proj;
-        return next;
+        next = [...prev];
+        next[idx] = cleanedProj;
+      } else {
+        next = [cleanedProj, ...prev];
       }
-      return [...prev, proj];
+      persistStorage(STORAGE_KEYS.PROJECTS, next);
+      return next;
+    });
+  };
+
+  const updateProjectField = <K extends keyof Project>(id: string, field: K, value: Project[K]) => {
+    setProjects((prev) => {
+      const idx = prev.findIndex((p) => p.id === id);
+      if (idx === -1) return prev;
+      const next = [...prev];
+      let cleanedValue = value;
+      if (field === 'heroImage' && typeof value === 'string') {
+        cleanedValue = getDirectDriveUrl(value) as Project[K];
+      }
+      next[idx] = { ...next[idx], [field]: cleanedValue };
+      persistStorage(STORAGE_KEYS.PROJECTS, next);
+      return next;
     });
   };
 
   const deleteProject = (id: string) => {
-    setProjects((prev) => prev.filter((p) => p.id !== id));
+    setProjects((prev) => {
+      const next = prev.filter((p) => p.id !== id);
+      persistStorage(STORAGE_KEYS.PROJECTS, next);
+      return next;
+    });
   };
 
   const reorderProjects = (nextProjects: Project[]) => {
     setProjects(nextProjects);
+    persistStorage(STORAGE_KEYS.PROJECTS, nextProjects);
   };
 
   const saveService = (srv: Service) => {
     setServices((prev) => {
       const idx = prev.findIndex((s) => s.id === srv.id);
+      let next: Service[];
       if (idx >= 0) {
-        const next = [...prev];
+        next = [...prev];
         next[idx] = srv;
-        return next;
+      } else {
+        next = [...prev, srv];
       }
-      return [...prev, srv];
+      persistStorage(STORAGE_KEYS.SERVICES, next);
+      return next;
     });
   };
 
   const deleteService = (id: string) => {
-    setServices((prev) => prev.filter((s) => s.id !== id));
+    setServices((prev) => {
+      const next = prev.filter((s) => s.id !== id);
+      persistStorage(STORAGE_KEYS.SERVICES, next);
+      return next;
+    });
   };
 
   const saveSkill = (skill: SkillItem) => {
     setSkills((prev) => {
       const idx = prev.findIndex((s) => s.name.toLowerCase() === skill.name.toLowerCase());
+      let next: SkillItem[];
       if (idx >= 0) {
-        const next = [...prev];
+        next = [...prev];
         next[idx] = skill;
-        return next;
+      } else {
+        next = [...prev, skill];
       }
-      return [...prev, skill];
+      persistStorage(STORAGE_KEYS.SKILLS, next);
+      return next;
     });
   };
 
   const deleteSkill = (name: string) => {
-    setSkills((prev) => prev.filter((s) => s.name !== name));
+    setSkills((prev) => {
+      const next = prev.filter((s) => s.name !== name);
+      persistStorage(STORAGE_KEYS.SKILLS, next);
+      return next;
+    });
   };
 
   const savePrompt = (prompt: PromptItem) => {
     setPrompts((prev) => {
       const idx = prev.findIndex((p) => p.id === prompt.id);
+      let next: PromptItem[];
       if (idx >= 0) {
-        const next = [...prev];
+        next = [...prev];
         next[idx] = prompt;
-        return next;
+      } else {
+        next = [...prev, prompt];
       }
-      return [...prev, prompt];
+      persistStorage(STORAGE_KEYS.PROMPTS, next);
+      return next;
     });
   };
 
   const deletePrompt = (id: string) => {
-    setPrompts((prev) => prev.filter((p) => p.id !== id));
+    setPrompts((prev) => {
+      const next = prev.filter((p) => p.id !== id);
+      persistStorage(STORAGE_KEYS.PROMPTS, next);
+      return next;
+    });
   };
 
   const saveExperience = (item: ExperienceItem) => {
     setExperience((prev) => {
       const idx = prev.findIndex((e) => e.id === item.id);
+      let next: ExperienceItem[];
       if (idx >= 0) {
-        const next = [...prev];
+        next = [...prev];
         next[idx] = item;
-        return next;
+      } else {
+        next = [...prev, item];
       }
-      return [...prev, item];
+      persistStorage(STORAGE_KEYS.EXPERIENCE, next);
+      return next;
     });
   };
 
   const deleteExperience = (id: string) => {
-    setExperience((prev) => prev.filter((e) => e.id !== id));
+    setExperience((prev) => {
+      const next = prev.filter((e) => e.id !== id);
+      persistStorage(STORAGE_KEYS.EXPERIENCE, next);
+      return next;
+    });
   };
 
   const resetAllToDefault = () => {
@@ -308,13 +468,7 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setPrompts(initialPrompts);
     setExperience(initialExperience);
     setSettings(initialSettings);
-    localStorage.removeItem(STORAGE_KEYS.PROFILE);
-    localStorage.removeItem(STORAGE_KEYS.PROJECTS);
-    localStorage.removeItem(STORAGE_KEYS.SERVICES);
-    localStorage.removeItem(STORAGE_KEYS.SKILLS);
-    localStorage.removeItem(STORAGE_KEYS.PROMPTS);
-    localStorage.removeItem(STORAGE_KEYS.EXPERIENCE);
-    localStorage.removeItem(STORAGE_KEYS.SETTINGS);
+    Object.values(STORAGE_KEYS).forEach((k) => localStorage.removeItem(k));
   };
 
   const exportDataJson = (): string => {
@@ -337,15 +491,51 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const importDataJson = (jsonStr: string): boolean => {
     try {
       const parsed = JSON.parse(jsonStr);
-      if (parsed.profile) setProfile(parsed.profile);
-      if (parsed.projects) setProjects(parsed.projects);
-      if (parsed.services) setServices(parsed.services);
-      if (parsed.skills) setSkills(parsed.skills);
-      if (parsed.prompts) setPrompts(parsed.prompts);
-      if (parsed.experience) setExperience(parsed.experience);
-      if (parsed.settings) setSettings(parsed.settings);
+      if (parsed.profile) {
+        if (parsed.profile.portraitUrl) {
+          parsed.profile.portraitUrl = getDirectDriveUrl(parsed.profile.portraitUrl);
+        }
+        if (parsed.profile.avatarUrl) {
+          parsed.profile.avatarUrl = getDirectDriveUrl(parsed.profile.avatarUrl);
+        }
+        setProfile(parsed.profile);
+        persistStorage(STORAGE_KEYS.PROFILE, parsed.profile);
+      }
+      if (parsed.projects) {
+        const cleanedProjects = parsed.projects.map((p: Project) => ({
+          ...p,
+          heroImage: getDirectDriveUrl(p.heroImage),
+          images: p.images?.map((img) => ({
+            ...img,
+            url: getDirectDriveUrl(img.url),
+          })) || [],
+        }));
+        setProjects(cleanedProjects);
+        persistStorage(STORAGE_KEYS.PROJECTS, cleanedProjects);
+      }
+      if (parsed.services) {
+        setServices(parsed.services);
+        persistStorage(STORAGE_KEYS.SERVICES, parsed.services);
+      }
+      if (parsed.skills) {
+        setSkills(parsed.skills);
+        persistStorage(STORAGE_KEYS.SKILLS, parsed.skills);
+      }
+      if (parsed.prompts) {
+        setPrompts(parsed.prompts);
+        persistStorage(STORAGE_KEYS.PROMPTS, parsed.prompts);
+      }
+      if (parsed.experience) {
+        setExperience(parsed.experience);
+        persistStorage(STORAGE_KEYS.EXPERIENCE, parsed.experience);
+      }
+      if (parsed.settings) {
+        setSettings(parsed.settings);
+        persistStorage(STORAGE_KEYS.SETTINGS, parsed.settings);
+      }
       return true;
-    } catch {
+    } catch (err) {
+      console.error('[Import Data Error]', err);
       return false;
     }
   };
@@ -361,10 +551,7 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         experience,
         settings,
         activeSection,
-        setActiveSection: (sec) => {
-          setActiveSection(sec);
-          window.location.hash = sec === 'home' ? '' : sec;
-        },
+        setActiveSection,
         selectedProjectId,
         setSelectedProjectId,
         isAdminOpen,
@@ -372,6 +559,7 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         updateProfile,
         updateSettings,
         saveProject,
+        updateProjectField,
         deleteProject,
         reorderProjects,
         saveService,

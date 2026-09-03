@@ -51,6 +51,11 @@ const PortfolioContent: React.FC = () => {
     };
   }, [setIsAdminOpen, isAdminOpen]);
 
+  // If Admin is triggered, render standalone Full-Screen Split-View CMS
+  if (isAdminOpen) {
+    return <Admin />;
+  }
+
   return (
     <div className="relative min-h-screen bg-[#0c0c0e] text-[#f3f4f6] selection:bg-indigo-500/30 selection:text-white flex flex-col justify-between overflow-x-hidden">
       
@@ -81,9 +86,6 @@ const PortfolioContent: React.FC = () => {
           </motion.div>
         </AnimatePresence>
       </main>
-
-      {/* Private Admin Dashboard Modal */}
-      <Admin />
 
       {/* Sleek Polished Glassmorphism Footer with Phone / Viber Quick Action */}
       <Footer />

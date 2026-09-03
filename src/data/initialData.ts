@@ -10,7 +10,7 @@ export const initialProfile: ProfileData = {
     'Bridging high-craft UI/UX & graphic design, advanced prompt engineering, strategic content systems, and bilingual voiceover narration into cohesive digital brand experiences.',
   positioning:
     'I bridge creative strategy, visual craft, content production, and technical web development. From bespoke aesthetic clinic identities and high-converting video scriptwriting to full-stack React web portals and generative AI prompt engineering, my core advantage is connecting strategic logic with refined execution.',
-  portraitUrl: '/src/assets/images/thomas_portrait_1788374555669.jpg',
+  portraitUrl: 'https://lh3.googleusercontent.com/d/1Pz77FIirx9DBi0-ExQwq2Ze9ehthkXAr',
   statusText: 'Available for Select Q3/Q4 Projects · Yangon & Remote',
   featureTags: [
     'UI/UX & GRAPHIC DESIGN',

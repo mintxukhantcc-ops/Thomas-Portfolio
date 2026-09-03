@@ -11,7 +11,10 @@ import {
   Play,
   ChevronRight,
   Video,
-  Sparkles
+  Sparkles,
+  Layers,
+  Wrench,
+  Award
 } from 'lucide-react';
 
 /**
@@ -123,9 +126,9 @@ export const Projects: React.FC = () => {
   const videoInfo = activeProject ? getVideoEmbedInfo(activeProject.videoEmbedUrl) : null;
 
   return (
-    <div className="min-h-screen pt-24 sm:pt-28 pb-32 px-4 sm:px-6 max-w-7xl mx-auto relative z-10">
+    <div className="min-h-screen pt-24 sm:pt-28 pb-32 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto relative z-10">
       
-      {/* Top Header & Breadcrumb with standard typography & scaling */}
+      {/* Top Header & Breadcrumbs */}
       <div className="flex flex-wrap items-center justify-between gap-4 mb-8 pb-6 border-b border-white/10">
         <div>
           <motion.button
@@ -138,421 +141,336 @@ export const Projects: React.FC = () => {
                 setActiveSection('home');
               }
             }}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#15151b]/70 backdrop-blur-md border border-white/10 hover:border-white/20 text-neutral-300 hover:text-white text-xs font-mono-tech tracking-wider uppercase mb-3 transition-colors min-h-[44px]"
+            className="inline-flex items-center gap-2 text-xs font-mono-tech uppercase tracking-wider text-slate-400 hover:text-white transition-colors mb-2"
           >
-            <ArrowLeft className="w-4 h-4 text-indigo-400" />
-            <span>{selectedProjectId ? 'Back to All Projects' : 'Return to Orbit Center'}</span>
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>{selectedProjectId ? 'Back to All Projects' : 'Back to Overview'}</span>
           </motion.button>
           
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-sans font-bold text-white tracking-tight break-words">
+          <h1 className="text-3xl sm:text-4xl font-bold font-sans tracking-tight text-white">
             {selectedProjectId && activeProject ? activeProject.title : 'Featured Case Studies'}
           </h1>
-          <p className="text-xs sm:text-sm text-neutral-400 font-sans mt-1 max-w-2xl">
-            {selectedProjectId && activeProject 
-              ? `${activeProject.category} · Role: ${activeProject.role}` 
-              : 'End-to-end creative campaigns, brand identities, video content systems, and full-stack web applications.'}
-          </p>
         </div>
 
-        {/* Category filter pills (only visible on list view) */}
+        {/* Categories Bar (Only in List View) */}
         {!selectedProjectId && (
-          <div className="flex flex-wrap items-center gap-1.5 bg-[#141418]/70 backdrop-blur-md p-1.5 rounded-2xl border border-white/10 shadow-inner">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full scrollbar-none">
             {categories.map((cat) => (
-              <motion.button
+              <button
                 key={cat}
-                whileTap={{ scale: 0.96 }}
                 onClick={() => setActiveCategoryFilter(cat)}
-                className={`px-3.5 py-2 rounded-xl text-xs font-mono-tech tracking-wider uppercase transition-all min-h-[40px] ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-mono-tech uppercase tracking-wider whitespace-nowrap transition-all ${
                   activeCategoryFilter === cat
-                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold shadow-md'
-                    : 'text-neutral-400 hover:text-white'
+                    ? 'bg-white text-black font-bold shadow-md'
+                    : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 border border-white/10'
                 }`}
               >
                 {cat}
-              </motion.button>
+              </button>
             ))}
           </div>
         )}
       </div>
 
-      {/* ========================================================= */}
-      {/* DETAIL CASE STUDY VIEW                                    */}
-      {/* ========================================================= */}
-      {activeProject ? (
+      {/* =================================================================== */}
+      {/* VIEW A: PROJECT DETAIL VIEW                                         */}
+      {/* =================================================================== */}
+      {selectedProjectId && activeProject ? (
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-          className="space-y-10"
+          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          className="space-y-12"
         >
-          {/* Hero Visual Asset Container */}
-          <div className="relative rounded-3xl overflow-hidden border border-white/10 bg-[#121217]/70 backdrop-blur-md shadow-2xl">
-            <div className="aspect-[16/9] sm:aspect-[21/9] w-full relative overflow-hidden bg-black/80">
-              <img
-                src={activeProject.heroImage}
-                alt={activeProject.title}
-                className="w-full h-full object-cover"
-                referrerPolicy="no-referrer"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#0c0c0e] via-transparent to-black/40" />
-              
-              <div className="absolute top-4 left-4 sm:top-6 sm:left-6 flex flex-wrap items-center gap-2">
-                <span className="px-3 py-1 rounded-full bg-black/70 backdrop-blur-md border border-white/20 text-xs font-mono-tech uppercase tracking-wider text-indigo-300">
-                  PROJECT {activeProject.projectNumber}
-                </span>
-                <span className="px-3 py-1 rounded-full bg-black/70 backdrop-blur-md border border-white/20 text-xs font-mono-tech uppercase tracking-wider text-neutral-300">
-                  {activeProject.category}
-                </span>
-              </div>
+          {/* Main Top Two-Column Banner */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            
+            {/* Left Column: Hero Image or Video Player (cols 1-7) */}
+            <div className="lg:col-span-7 space-y-4">
+              {videoInfo ? (
+                <div className="rounded-2xl overflow-hidden border border-white/15 bg-black shadow-2xl">
+                  <div className={`relative w-full ${videoInfo.isVertical ? 'aspect-[9/16] max-w-sm mx-auto' : 'aspect-video'}`}>
+                    <iframe
+                      src={videoInfo.embedUrl}
+                      title={activeProject.title}
+                      className="absolute inset-0 w-full h-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  </div>
+                  <div className="p-3 bg-slate-900/80 border-t border-white/10 flex items-center justify-between text-xs font-mono-tech text-slate-400">
+                    <span className="flex items-center gap-1.5 text-indigo-400">
+                      <Video className="w-4 h-4" />
+                      <span>Direct Video Presentation</span>
+                    </span>
+                    <span className="uppercase text-[10px]">{videoInfo.type} embed</span>
+                  </div>
+                </div>
+              ) : (
+                <div 
+                  className="relative rounded-2xl overflow-hidden border border-white/15 bg-slate-900 shadow-2xl aspect-video group cursor-pointer"
+                  onClick={() => setActiveImageZoom(activeProject.heroImage)}
+                >
+                  <img
+                    src={activeProject.heroImage}
+                    alt={activeProject.title}
+                    className="w-full h-full object-cover group-hover:scale-103 transition-transform duration-500"
+                    referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      e.currentTarget.src = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80';
+                    }}
+                  />
+                  <div className="absolute top-3 right-3 p-2 rounded-xl bg-slate-950/70 backdrop-blur-md border border-white/10 text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Maximize2 className="w-4 h-4" />
+                  </div>
+                </div>
+              )}
 
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setActiveImageZoom(activeProject.heroImage)}
-                className="absolute bottom-4 right-4 sm:bottom-6 sm:right-6 p-3 rounded-full bg-black/70 hover:bg-black text-white border border-white/20 backdrop-blur-md transition-colors min-h-[48px] min-w-[48px] flex items-center justify-center shadow-lg"
-                title="Expand View"
-                aria-label="Expand image"
-              >
-                <Maximize2 className="w-4 h-4" />
-              </motion.button>
+              {/* Gallery Thumbnails if available */}
+              {activeProject.images && activeProject.images.length > 0 && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {activeProject.images.map((img, idx) => (
+                    <div
+                      key={img.id || idx}
+                      onClick={() => setActiveImageZoom(img.url)}
+                      className="relative aspect-video rounded-xl overflow-hidden border border-white/10 bg-slate-900 cursor-pointer group shadow-sm hover:border-indigo-400/50 transition-colors"
+                    >
+                      <img
+                        src={img.url}
+                        alt={img.caption || `Gallery ${idx + 1}`}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                        referrerPolicy="no-referrer"
+                        onError={(e) => {
+                          e.currentTarget.src = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80';
+                        }}
+                      />
+                      {img.caption && (
+                        <div className="absolute inset-x-0 bottom-0 p-1.5 bg-slate-950/80 backdrop-blur-sm text-[10px] font-sans text-slate-300 truncate">
+                          {img.caption}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
-            {/* Overview & Metadata Bar (p-6 mobile, p-8 desktop) */}
-            <div className="p-6 sm:p-8 bg-[#14141a]/80 backdrop-blur-md">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="md:col-span-2">
-                  <span className="text-[10px] font-mono-tech tracking-widest uppercase text-indigo-400 block mb-1">
-                    PROJECT STRATEGY & SCOPE
+            {/* Right Column: Project Metadata & Overview (cols 8-12) */}
+            <div className="lg:col-span-5 space-y-6">
+              <div className="p-6 rounded-2xl bg-slate-900/70 backdrop-blur-md border border-white/10 space-y-5">
+                
+                {/* Number & Category */}
+                <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                  <span className="text-2xl font-mono-tech font-bold text-indigo-400">
+                    #{activeProject.projectNumber}
                   </span>
-                  <p className="text-sm sm:text-base text-white font-sans leading-relaxed">
-                    {activeProject.summary}
-                  </p>
-                  {activeProject.outcome && (
-                    <div className="mt-4 p-4 rounded-xl bg-indigo-950/30 border border-indigo-500/25">
-                      <span className="text-[10px] font-mono-tech tracking-widest uppercase text-indigo-300 block mb-1">
-                        MEASURABLE BUSINESS IMPACT
-                      </span>
-                      <p className="text-xs sm:text-sm text-neutral-200 font-sans leading-relaxed">
-                        {activeProject.outcome}
-                      </p>
-                    </div>
-                  )}
+                  <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-mono-tech uppercase tracking-wider text-slate-300">
+                    {activeProject.category}
+                  </span>
                 </div>
 
-                <div className="space-y-4 border-t md:border-t-0 md:border-l border-white/10 md:pl-6 pt-4 md:pt-0">
-                  <div>
-                    <span className="text-[10px] font-mono-tech tracking-widest uppercase text-neutral-400 block mb-1">
-                      MY ROLE
-                    </span>
-                    <p className="text-sm font-semibold text-white font-sans">
-                      {activeProject.role}
-                    </p>
+                {/* Role */}
+                <div>
+                  <div className="text-xs font-mono-tech uppercase text-slate-400 mb-1">
+                    Direct Role
                   </div>
+                  <div className="text-sm font-sans font-semibold text-white">
+                    {activeProject.role}
+                  </div>
+                </div>
+
+                {/* Summary */}
+                <div>
+                  <div className="text-xs font-mono-tech uppercase text-slate-400 mb-1">
+                    Case Summary
+                  </div>
+                  <p className="text-sm font-sans text-slate-300 leading-relaxed">
+                    {activeProject.summary}
+                  </p>
+                </div>
+
+                {/* Tools & Technologies */}
+                <div className="space-y-3 pt-2">
                   <div>
-                    <span className="text-[10px] font-mono-tech tracking-widest uppercase text-neutral-400 block mb-1">
-                      TOOLS & TECHNOLOGIES
-                    </span>
+                    <div className="text-xs font-mono-tech uppercase text-slate-400 mb-2 flex items-center gap-1.5">
+                      <Wrench className="w-3.5 h-3.5 text-indigo-400" />
+                      <span>Tools & Software</span>
+                    </div>
                     <div className="flex flex-wrap gap-1.5">
-                      {activeProject.tools.concat(activeProject.technologies).map((t, idx) => (
-                        <span
-                          key={idx}
-                          className="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-[10px] font-mono-tech uppercase text-neutral-300"
-                        >
+                      {activeProject.tools.map((t, i) => (
+                        <span key={i} className="px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-xs font-mono-tech text-slate-300">
                           {t}
                         </span>
                       ))}
                     </div>
                   </div>
-                  {activeProject.projectLink && (
-                    <motion.a
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.97 }}
+
+                  <div>
+                    <div className="text-xs font-mono-tech uppercase text-slate-400 mb-2 flex items-center gap-1.5">
+                      <Layers className="w-3.5 h-3.5 text-blue-400" />
+                      <span>Methodologies & Tech</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {activeProject.technologies.map((t, i) => (
+                        <span key={i} className="px-2.5 py-1 rounded-lg bg-indigo-950/40 border border-indigo-500/20 text-xs font-mono-tech text-indigo-300">
+                          {t}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* External Links */}
+                {activeProject.projectLink && (
+                  <div className="pt-4 border-t border-white/10">
+                    <a
                       href={activeProject.projectLink}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white text-black text-xs font-mono-tech uppercase tracking-wider font-bold hover:bg-neutral-200 transition-colors min-h-[48px] shadow-md"
+                      className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-white text-black font-mono-tech font-bold text-xs uppercase tracking-wider hover:bg-neutral-200 transition-colors shadow-md min-h-[44px]"
                     >
-                      <span>VIEW LIVE SITE / DEMO</span>
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </motion.a>
-                  )}
-                </div>
+                      <span>Visit Live Deployment</span>
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                  </div>
+                )}
+
               </div>
             </div>
+
           </div>
 
-          {/* ================================================================= */}
-          {/* RESPONSIVE EMBEDDED VIDEO CONTAINER (ASPECT-VIDEO & 9:16 REEL)    */}
-          {/* ================================================================= */}
-          {videoInfo && (
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.4 }}
-              className="rounded-3xl border border-white/10 bg-[#14141a]/70 backdrop-blur-md p-6 sm:p-8 shadow-xl"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
-                <div>
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-950/60 border border-rose-500/30 text-rose-300 text-xs font-mono-tech uppercase mb-2">
-                    <Play className="w-3 h-3 fill-rose-400 text-rose-400" />
-                    <span>
-                      {videoInfo.type === 'youtube'
-                        ? videoInfo.isVertical ? 'YOUTUBE SHORTS REEL' : 'YOUTUBE VIDEO SHOWCASE'
-                        : videoInfo.type === 'tiktok' ? 'TIKTOK COMMERCIAL REEL' : 'EMBEDDED VIDEO PLAYER'}
-                    </span>
-                  </div>
-                  <h3 className="text-xl font-sans font-bold text-white tracking-tight">
-                    Campaign Commercial Video & Creative Reel
-                  </h3>
-                </div>
-                {activeProject.videoEmbedUrl && (
-                  <motion.a
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.97 }}
-                    href={activeProject.videoEmbedUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-mono-tech text-neutral-300 hover:text-white transition-colors border border-white/10 min-h-[44px]"
-                  >
-                    <Video className="w-3.5 h-3.5 text-rose-400" />
-                    <span>Open on {videoInfo.type === 'youtube' ? 'YouTube' : videoInfo.type === 'tiktok' ? 'TikTok' : 'Web'}</span>
-                    <ExternalLink className="w-3 h-3 ml-0.5" />
-                  </motion.a>
-                )}
+          {/* Key Deliverables & Outcome Section */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            {/* Key Deliverables */}
+            <div className="lg:col-span-7 p-6 rounded-2xl bg-slate-900/50 border border-white/10 space-y-4">
+              <div className="flex items-center gap-2 pb-2 border-b border-white/10">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                <h3 className="text-base font-bold font-sans text-white tracking-tight">
+                  Strategic Deliverables & Specifications
+                </h3>
               </div>
-
-              {/* Responsive Video Player Embed Box */}
-              <div className="relative w-full rounded-2xl overflow-hidden bg-black/95 border border-white/10 flex justify-center items-center shadow-2xl">
-                {videoInfo.isVertical ? (
-                  /* Vertical Short-Form Aspect Ratio (TikTok / YouTube Shorts 9:16) */
-                  <div className="w-full max-w-sm aspect-[9/16] py-3">
-                    <iframe
-                      src={videoInfo.embedUrl}
-                      title={`${activeProject.title} Video Reel`}
-                      className="w-full h-full rounded-xl"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                      allowFullScreen
-                    />
-                  </div>
-                ) : (
-                  /* Standard 16:9 Landscape Aspect Ratio (aspect-video) */
-                  <div className="w-full aspect-video">
-                    <iframe
-                      src={videoInfo.embedUrl}
-                      title={`${activeProject.title} Video Showcase`}
-                      className="w-full h-full"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                      allowFullScreen
-                    />
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          )}
-
-          {/* Deliverables Checklist */}
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.4 }}
-            className="rounded-3xl border border-white/10 bg-[#141419]/70 backdrop-blur-md p-6 sm:p-8 shadow-xl"
-          >
-            <div className="mb-5">
-              <span className="text-[10px] font-mono-tech tracking-widest uppercase text-indigo-400 block mb-1">
-                EXECUTION BREAKDOWN
-              </span>
-              <h3 className="text-xl font-sans font-bold text-white tracking-tight">
-                Key Deliverables Produced
-              </h3>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {activeProject.keyDeliverables.map((item, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-start gap-3 p-4 rounded-xl bg-white/[0.02] border border-white/5 hover:border-white/10 transition-colors"
-                >
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
-                  <span className="text-xs sm:text-sm text-neutral-200 font-sans leading-relaxed">
-                    {item}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-
-          {/* Image Gallery Showcase */}
-          {activeProject.images && activeProject.images.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.4 }}
-            >
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <span className="text-[10px] font-mono-tech tracking-widest uppercase text-indigo-400 block mb-1">
-                    VISUAL DELIVERABLES
-                  </span>
-                  <h3 className="text-xl font-sans font-bold text-white tracking-tight">
-                    Deliverables & Interface Gallery ({activeProject.images.length})
-                  </h3>
-                </div>
-                <span className="text-xs font-mono-tech text-neutral-400 hidden sm:inline">
-                  CLICK TO EXPAND
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {activeProject.images.map((img) => (
-                  <motion.div
-                    key={img.id}
-                    whileHover={{ y: -4 }}
-                    transition={{ duration: 0.2 }}
-                    onClick={() => setActiveImageZoom(img.url)}
-                    className="group cursor-pointer rounded-2xl overflow-hidden border border-white/10 bg-[#121217]/70 backdrop-blur-md hover:border-white/25 transition-all shadow-lg"
-                  >
-                    <div className="relative aspect-[16/10] overflow-hidden bg-black/60">
-                      <img
-                        src={img.url}
-                        alt={img.caption || 'Project visual'}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                        loading="lazy"
-                        referrerPolicy="no-referrer"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60 group-hover:opacity-80 transition-opacity" />
-                      
-                      <div className="absolute top-3 right-3 p-2.5 rounded-full bg-black/70 text-white border border-white/20 backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity min-h-[40px] min-w-[40px] flex items-center justify-center">
-                        <Maximize2 className="w-4 h-4" />
-                      </div>
-                      
-                      {img.type && (
-                        <div className="absolute top-3 left-3 px-2.5 py-0.5 rounded bg-black/70 backdrop-blur-md border border-white/15 text-[9px] font-mono-tech uppercase text-neutral-300">
-                          {img.type}
-                        </div>
-                      )}
-                    </div>
-                    {img.caption && (
-                      <div className="p-4 bg-[#141419]/80 border-t border-white/5">
-                        <p className="text-xs font-sans text-neutral-300">
-                          {img.caption}
-                        </p>
-                      </div>
-                    )}
-                  </motion.div>
+              <ul className="space-y-2.5">
+                {activeProject.keyDeliverables.map((d, i) => (
+                  <li key={i} className="flex items-start gap-3 text-sm font-sans text-slate-300 leading-relaxed">
+                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 mt-2 shrink-0" />
+                    <span>{d}</span>
+                  </li>
                 ))}
+              </ul>
+            </div>
+
+            {/* Measurable Outcome */}
+            {activeProject.outcome && (
+              <div className="lg:col-span-5 p-6 rounded-2xl bg-gradient-to-br from-indigo-950/30 to-blue-950/30 border border-indigo-500/30 space-y-3">
+                <div className="flex items-center gap-2 pb-2 border-b border-indigo-500/20">
+                  <Award className="w-4 h-4 text-indigo-400" />
+                  <h3 className="text-base font-bold font-sans text-white tracking-tight">
+                    Impact & Outcomes
+                  </h3>
+                </div>
+                <p className="text-sm font-sans text-indigo-200 leading-relaxed">
+                  {activeProject.outcome}
+                </p>
               </div>
-            </motion.div>
-          )}
+            )}
 
-          {/* Bottom Actions */}
-          <div className="pt-8 border-t border-white/10 flex flex-wrap items-center justify-between gap-4">
-            <motion.button
-              whileTap={{ scale: 0.97 }}
+          </div>
+
+          {/* Bottom Back Button */}
+          <div className="pt-6 border-t border-white/10 flex justify-between items-center">
+            <button
               onClick={() => setSelectedProjectId(null)}
-              className="flex items-center gap-2 px-5 py-3 rounded-full bg-[#15151b]/70 backdrop-blur-md hover:bg-white/10 border border-white/10 text-xs font-mono-tech uppercase tracking-wider text-neutral-300 hover:text-white transition-all min-h-[48px]"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-mono-tech uppercase font-bold text-slate-300 hover:text-white transition-colors min-h-[44px]"
             >
-              <ArrowLeft className="w-4 h-4 text-indigo-400" />
-              <span>Back to All Case Studies</span>
-            </motion.button>
-
-            <motion.button
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={() => setActiveSection('contact')}
-              className="flex items-center gap-2 px-5 py-3 rounded-full bg-white text-black text-xs font-mono-tech uppercase tracking-wider font-bold hover:bg-neutral-200 transition-all min-h-[48px] shadow-md"
-            >
-              <Sparkles className="w-4 h-4 text-indigo-600" />
-              <span>Inquire About Similar Project</span>
-              <ChevronRight className="w-4 h-4" />
-            </motion.button>
+              <ArrowLeft className="w-4 h-4" />
+              <span>Back to All Projects</span>
+            </button>
           </div>
 
         </motion.div>
       ) : (
-        /* ========================================================= */
-        /* GALLERY GRID VIEW (With Staggered Scroll Reveal)          */
-        /* ========================================================= */
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredProjects.map((proj, idx) => (
-            <motion.div
-              key={proj.id}
-              initial={{ opacity: 0, y: 16 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.45, delay: (idx % 3) * 0.08 }}
-              whileHover={{ y: -6, transition: { duration: 0.2 } }}
-              onClick={() => setSelectedProjectId(proj.id)}
-              className="group cursor-pointer rounded-2xl bg-[#141419]/70 backdrop-blur-md border border-white/10 overflow-hidden hover:border-white/20 transition-all shadow-xl flex flex-col justify-between"
-            >
-              <div>
-                <div className="relative aspect-[16/10] overflow-hidden bg-black/60">
+        /* =================================================================== */
+        /* VIEW B: ALL PROJECTS GRID (Default)                                 */
+        /* =================================================================== */
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {filteredProjects.map((project) => {
+            const hasVideo = Boolean(project.videoEmbedUrl);
+            return (
+              <motion.article
+                key={project.id}
+                whileHover={{ y: -6 }}
+                onClick={() => setSelectedProjectId(project.id)}
+                className="group cursor-pointer rounded-2xl bg-slate-900/60 border border-white/10 hover:border-indigo-500/50 overflow-hidden shadow-xl hover:shadow-2xl hover:shadow-indigo-950/30 transition-all flex flex-col"
+              >
+                {/* Media Container */}
+                <div className="relative aspect-video w-full overflow-hidden bg-slate-950">
                   <img
-                    src={proj.heroImage}
-                    alt={proj.title}
+                    src={project.heroImage}
+                    alt={project.title}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    loading="lazy"
                     referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      e.currentTarget.src = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80';
+                    }}
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#141419] via-black/30 to-transparent" />
                   
-                  <div className="absolute top-3 left-3 flex items-center gap-1.5">
-                    <span className="px-2.5 py-0.5 rounded bg-black/70 backdrop-blur-md border border-white/15 text-[10px] font-mono-tech tracking-wider uppercase text-neutral-300">
-                      PROJECT {proj.projectNumber}
-                    </span>
+                  {/* Category Chip */}
+                  <div className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-slate-950/80 backdrop-blur-md border border-white/10 text-[10px] font-mono-tech font-bold uppercase text-white">
+                    #{project.projectNumber} · {project.category.split('·')[0].trim()}
                   </div>
 
-                  <div className="absolute top-3 right-3 flex items-center gap-1.5">
-                    {proj.videoEmbedUrl && (
-                      <span className="flex items-center gap-1 px-2 py-0.5 rounded bg-rose-950/80 backdrop-blur-md border border-rose-500/30 text-[9px] font-mono-tech uppercase text-rose-300">
-                        <Play className="w-2.5 h-2.5 fill-rose-300 text-rose-300" />
-                        <span>VIDEO</span>
-                      </span>
-                    )}
-                    <span className="px-2 py-0.5 rounded bg-indigo-950/80 backdrop-blur-md border border-indigo-500/30 text-[9px] font-mono-tech uppercase text-indigo-300">
-                      {proj.images.length} ASSETS
-                    </span>
-                  </div>
+                  {/* Video Indicator if exists */}
+                  {hasVideo && (
+                    <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-indigo-600/90 backdrop-blur-md border border-white/20 text-[10px] font-mono-tech font-bold uppercase text-white flex items-center gap-1 shadow-md">
+                      <Play className="w-3 h-3 fill-white" />
+                      <span>Video Available</span>
+                    </div>
+                  )}
                 </div>
 
-                <div className="p-5">
-                  <span className="text-[10px] font-mono-tech tracking-wider uppercase text-indigo-400 block mb-1.5">
-                    {proj.category}
-                  </span>
-                  <h3 className="text-base sm:text-lg font-sans font-bold text-white group-hover:text-indigo-300 transition-colors line-clamp-1 mb-2">
-                    {proj.title}
-                  </h3>
-                  <p className="text-xs text-neutral-400 font-sans line-clamp-3 leading-relaxed mb-4">
-                    {proj.summary}
-                  </p>
+                {/* Content Details */}
+                <div className="p-6 flex-1 flex flex-col justify-between space-y-4">
+                  <div>
+                    <h2 className="text-xl font-bold font-sans text-white group-hover:text-indigo-300 transition-colors tracking-tight mb-2">
+                      {project.title}
+                    </h2>
+                    <p className="text-xs font-mono-tech text-slate-400 mb-3">
+                      Role: <span className="text-slate-200">{project.role}</span>
+                    </p>
+                    <p className="text-xs text-slate-300 font-sans line-clamp-3 leading-relaxed">
+                      {project.summary}
+                    </p>
+                  </div>
 
-                  <div className="flex flex-wrap gap-1 mb-4">
-                    {proj.tools.slice(0, 3).map((tool, idx2) => (
-                      <span
-                        key={idx2}
-                        className="px-2.5 py-0.5 rounded bg-white/[0.03] border border-white/5 text-[9px] font-mono-tech text-neutral-400"
-                      >
-                        {tool}
+                  {/* Tools Tags */}
+                  <div className="pt-3 border-t border-white/10 flex flex-wrap gap-1.5">
+                    {project.tools.slice(0, 3).map((t, idx) => (
+                      <span key={idx} className="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-[10px] font-mono-tech text-slate-300">
+                        {t}
                       </span>
                     ))}
+                    {project.tools.length > 3 && (
+                      <span className="px-1.5 py-0.5 rounded bg-white/5 text-[10px] font-mono-tech text-slate-400">
+                        +{project.tools.length - 3}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Card Action Link */}
+                  <div className="pt-2 flex items-center justify-between text-xs font-mono-tech font-bold text-slate-300 group-hover:text-indigo-400">
+                    <span>Inspect Case Study</span>
+                    <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   </div>
                 </div>
-              </div>
-
-              <div className="p-4 pt-3 border-t border-white/5 flex items-center justify-between text-xs font-mono-tech text-neutral-400 bg-white/[0.01]">
-                <span className="truncate max-w-[150px]">{proj.role}</span>
-                <span className="text-indigo-400 group-hover:translate-x-1 transition-transform flex items-center gap-1">
-                  <span>VIEW CASE</span>
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </span>
-              </div>
-            </motion.div>
-          ))}
+              </motion.article>
+            );
+          })}
         </div>
       )}
 
-      {/* Lightbox Modal with AnimatePresence */}
+      {/* Image Zoom Modal */}
       <AnimatePresence>
         {activeImageZoom && (
           <motion.div
@@ -560,30 +478,23 @@ export const Projects: React.FC = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setActiveImageZoom(null)}
-            className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 sm:p-8 cursor-zoom-out"
+            className="fixed inset-0 z-50 bg-black/90 backdrop-blur-xl p-4 flex items-center justify-center cursor-zoom-out"
           >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="relative max-w-5xl max-h-[90vh] overflow-hidden rounded-2xl border border-white/20"
-            >
+            <div className="relative max-w-5xl max-h-[90vh] overflow-hidden rounded-2xl border border-white/20">
               <img
                 src={activeImageZoom}
-                alt="Expanded view"
-                className="max-w-full max-h-[85vh] object-contain"
+                alt="Enlarged case asset"
+                className="w-full h-full object-contain"
                 referrerPolicy="no-referrer"
               />
               <button
                 onClick={() => setActiveImageZoom(null)}
-                className="absolute top-4 right-4 p-3 rounded-full bg-black/70 text-white hover:bg-black border border-white/20 transition-colors min-h-[48px] min-w-[48px] flex items-center justify-center shadow-xl"
-                title="Close modal"
-                aria-label="Close"
+                className="absolute top-4 right-4 p-2 rounded-full bg-slate-900/80 text-white border border-white/20"
+                aria-label="Close zoomed image"
               >
                 <X className="w-5 h-5" />
               </button>
-            </motion.div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

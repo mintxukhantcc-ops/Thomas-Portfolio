@@ -12,7 +12,7 @@ import {
   Sparkles, 
   Menu, 
   X,
-  Compass
+  Home
 } from 'lucide-react';
 
 interface NavItemDef {
@@ -33,6 +33,7 @@ export const Navbar: React.FC = () => {
 
   // Strictly curated sections: Projects, Skills, Services, About, Experience, Contact
   // AI Prompts and Voiceover Audio Player are completely excluded
+  // Admin links and lock icons are completely removed for privacy and security
   const rawNavItems: NavItemDef[] = [
     { id: 'projects', label: 'PROJECTS', icon: FolderKanban },
     { id: 'skills', label: 'SKILLS', icon: Cpu },
@@ -52,27 +53,31 @@ export const Navbar: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const avatarUrl =
+    profile.avatarUrl ||
+    profile.portraitUrl ||
+    'https://lh3.googleusercontent.com/d/1Pz77FIirx9DBi0-ExQwq2Ze9ehthkXAr';
+
   return (
     <>
       {/* Fixed Top Header Bar with Glassmorphism */}
       <header className="fixed top-0 left-0 right-0 z-40 bg-[#0c0c0e]/80 backdrop-blur-md border-b border-white/10 transition-all">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between">
           
-          {/* Top-Left: Personal Profile Image Avatar */}
+          {/* Top-Left: Personal Profile Picture Avatar inside a small circular crop (w-10 h-10 rounded-full object-cover) */}
           <button
             onClick={() => handleNavClick('home')}
             className="flex items-center gap-3 text-left group focus:outline-none min-h-[48px] min-w-[48px] py-1"
-            aria-label="Return to Orbit Center"
+            aria-label="Return to Overview"
           >
             <div className="relative w-10 h-10 rounded-full overflow-hidden border border-white/20 group-hover:border-indigo-400 transition-colors shrink-0 shadow-md bg-[#16161b]">
               <img
-                src={profile.avatarUrl || profile.portraitUrl}
+                src={avatarUrl}
                 alt={profile.name}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                className="w-10 h-10 rounded-full object-cover group-hover:scale-105 transition-transform duration-300"
                 referrerPolicy="no-referrer"
                 onError={(e) => {
-                  // Fallback to stylized initial if image fails
-                  (e.currentTarget as HTMLElement).style.display = 'none';
+                  e.currentTarget.src = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=1000&q=80';
                 }}
               />
               <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-[#0c0c0e]" />
@@ -83,14 +88,14 @@ export const Navbar: React.FC = () => {
                 {profile.name}
               </span>
               <span className="text-[10px] font-mono-tech tracking-wider uppercase text-neutral-400">
-                {profile.nickname ? `(${profile.nickname}) · Creative Tech` : 'Portfolio'}
+                {profile.nickname ? `(${profile.nickname}) · Creative Technologist` : 'Portfolio'}
               </span>
             </div>
           </button>
 
-          {/* Desktop Navigation Links (>= 1024px) with Framer Motion LayoutId Highlight */}
+          {/* Desktop Navigation Links (>= 1024px) with Framer Motion Highlight */}
           <nav className="hidden lg:flex items-center gap-1 bg-[#15151b]/70 backdrop-blur-md border border-white/10 rounded-full p-1 shadow-inner">
-            {/* Center / Home Tab */}
+            {/* Home / Overview Tab */}
             <button
               onClick={() => handleNavClick('home')}
               className={`relative px-4 py-2 rounded-full text-xs font-mono-tech tracking-wider uppercase transition-colors min-h-[36px] z-10 ${
@@ -104,10 +109,10 @@ export const Navbar: React.FC = () => {
                   transition={{ type: 'spring', stiffness: 380, damping: 30 }}
                 />
               )}
-              <span>CENTER</span>
+              <span>OVERVIEW</span>
             </button>
 
-            {/* Other Navigation Tabs */}
+            {/* Curated Navigation Tabs */}
             {navItems.map((item) => {
               const isActive = activeSection === item.id;
               return (
@@ -131,7 +136,7 @@ export const Navbar: React.FC = () => {
             })}
           </nav>
 
-          {/* Header Action Controls (Spring Physics on Tap) */}
+          {/* Header Action Controls */}
           <div className="flex items-center gap-3">
             <motion.button
               whileHover={{ scale: 1.03 }}
@@ -140,10 +145,10 @@ export const Navbar: React.FC = () => {
               className="hidden sm:inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-indigo-500/20 to-blue-500/20 border border-indigo-500/40 hover:border-indigo-400 text-indigo-200 text-xs font-mono-tech tracking-wider uppercase transition-all shadow-sm min-h-[44px]"
             >
               <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-              <span>GET IN TOUCH</span>
+              <span>LET&apos;S TALK</span>
             </motion.button>
 
-            {/* Mobile menu toggle (visible on < 1024px) */}
+            {/* Mobile menu toggle button (< 1024px) */}
             <motion.button
               whileTap={{ scale: 0.92 }}
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -156,7 +161,7 @@ export const Navbar: React.FC = () => {
         </div>
       </header>
 
-      {/* Mobile Overlay Navigation Drawer (< 1024px) with Framer Motion AnimatePresence */}
+      {/* Mobile Overlay Navigation Drawer (< 1024px) */}
       <AnimatePresence>
         {mobileMenuOpen && (
           <motion.div
@@ -168,7 +173,7 @@ export const Navbar: React.FC = () => {
           >
             <div className="space-y-2 pt-4">
               <div className="text-[10px] font-mono-tech uppercase tracking-widest text-neutral-500 px-3 mb-2">
-                PORTFOLIO NAVIGATION
+                PORTFOLIO DIRECTORY
               </div>
               
               <button
@@ -179,8 +184,8 @@ export const Navbar: React.FC = () => {
                     : 'text-neutral-200 hover:bg-white/5'
                 }`}
               >
-                <Compass className="w-5 h-5 text-indigo-400" />
-                <span className="text-sm font-mono-tech uppercase tracking-wider">CENTER ORBIT</span>
+                <Home className="w-5 h-5 text-indigo-400" />
+                <span className="text-sm font-mono-tech uppercase tracking-wider">OVERVIEW</span>
               </button>
 
               {navItems.map((item) => {
@@ -229,8 +234,8 @@ export const Navbar: React.FC = () => {
               activeSection === 'home' ? 'text-indigo-400 bg-white/10' : 'text-neutral-400'
             }`}
           >
-            <Compass className="w-4 h-4" />
-            <span className="text-[9px] font-mono-tech uppercase">Orbit</span>
+            <Home className="w-4 h-4" />
+            <span className="text-[9px] font-mono-tech uppercase">Home</span>
           </button>
 
           <button

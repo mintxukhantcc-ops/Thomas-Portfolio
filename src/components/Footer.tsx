@@ -53,6 +53,11 @@ export const Footer: React.FC = () => {
     };
   }, [isContactMenuOpen]);
 
+  const avatarUrl =
+    profile.avatarUrl ||
+    profile.portraitUrl ||
+    'https://lh3.googleusercontent.com/d/1Pz77FIirx9DBi0-ExQwq2Ze9ehthkXAr';
+
   return (
     <footer className="relative z-20 backdrop-blur-md bg-slate-950/60 border-t border-white/10 pt-10 pb-28 md:pb-10 px-4 sm:px-6 transition-colors">
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
@@ -64,17 +69,17 @@ export const Footer: React.FC = () => {
             whileTap={{ scale: 0.95 }}
             onClick={() => setActiveSection('home')}
             className="group flex items-center gap-3 text-left focus:outline-none"
-            title="Return to Orbit Center"
+            title="Return to Home Overview"
           >
-            {/* Small circular profile avatar crop (w-8 h-8 rounded-full object-cover) */}
-            <div className="relative w-8 h-8 rounded-full overflow-hidden border border-white/20 bg-slate-900 shadow-sm shrink-0 group-hover:border-indigo-400 transition-colors">
+            {/* Small circular profile avatar crop (w-9 h-9 rounded-full object-cover) */}
+            <div className="relative w-9 h-9 rounded-full overflow-hidden border border-white/20 bg-slate-900 shadow-sm shrink-0 group-hover:border-indigo-400 transition-colors">
               <img
-                src={profile.avatarUrl || profile.portraitUrl}
+                src={avatarUrl}
                 alt={profile.name}
-                className="w-8 h-8 rounded-full object-cover"
+                className="w-9 h-9 rounded-full object-cover"
                 referrerPolicy="no-referrer"
                 onError={(e) => {
-                  (e.currentTarget as HTMLElement).style.display = 'none';
+                  e.currentTarget.src = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=1000&q=80';
                 }}
               />
               <div className="absolute inset-0 bg-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -115,7 +120,7 @@ export const Footer: React.FC = () => {
               <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
             </span>
             <Phone className="w-3.5 h-3.5 text-indigo-400" />
-            <span className="font-medium text-slate-200">Call / Viber Contact</span>
+            <span className="font-medium text-slate-200">Direct Call / Viber Line</span>
           </motion.button>
 
           {/* Interactive Direct Contact Dropdown / Popover */}

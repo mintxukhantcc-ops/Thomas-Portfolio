@@ -1,15 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { usePortfolio } from '../context/PortfolioContext';
-import { Project, Service, SkillItem, ExperienceItem } from '../types';
+import { usePortfolio, getDirectDriveUrl } from '../context/PortfolioContext';
+import { Project, Service, SkillItem, ExperienceItem, ActiveSection, SkillCategory } from '../types';
 import { 
   Lock, 
-  X, 
   Plus, 
   Trash2, 
-  Edit3, 
   Save, 
-  Upload, 
   Download, 
   RotateCcw, 
   FolderKanban, 
@@ -21,18 +18,34 @@ import {
   Database,
   Check,
   Video,
-  Play,
-  ExternalLink,
-  Shield
+  ArrowUpRight,
+  LogOut,
+  Shield,
+  Smartphone,
+  Tablet,
+  Monitor,
+  Sparkles,
+  Link,
+  Eye,
+  CheckCircle2
 } from 'lucide-react';
 import { getVideoEmbedInfo } from './Projects';
 
+// Public components for direct live reactive preview
+import { Center } from './Center';
+import { Projects } from './Projects';
+import { ServicesView } from './ServicesView';
+import { SkillsView } from './SkillsView';
+import { AboutView } from './AboutView';
+import { ExperienceView } from './ExperienceView';
+import { ContactView } from './ContactView';
+
 export const Admin: React.FC = () => {
   const {
-    isAdminOpen,
     setIsAdminOpen,
     projects,
     saveProject,
+    updateProjectField,
     deleteProject,
     services,
     saveService,
@@ -62,15 +75,38 @@ export const Admin: React.FC = () => {
   >('projects');
   const [toastMessage, setToastMessage] = useState('');
 
-  // Editing states
-  const [editingProject, setEditingProject] = useState<Project | null>(null);
-  const [editingService, setEditingService] = useState<Service | null>(null);
-  const [editingSkill, setEditingSkill] = useState<SkillItem | null>(null);
-  const [editingExperience, setEditingExperience] = useState<ExperienceItem | null>(null);
+  // Active preview section & device mode on right panel
+  const [previewSection, setPreviewSection] = useState<ActiveSection>('projects');
+  const [deviceMode, setDeviceMode] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
+
+  // Currently editing project ID (or new)
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(() => {
+    return projects[0]?.id || null;
+  });
+
+  // Services, skills, and experience editing states
+  const [activeServiceId, setActiveServiceId] = useState<string | null>(null);
+  const [activeExperienceId, setActiveExperienceId] = useState<string | null>(null);
+
+  // New Skill form state
+  const [newSkillName, setNewSkillName] = useState('');
+  const [newSkillCategory, setNewSkillCategory] = useState<SkillCategory>('Design');
+  const [newSkillDesc, setNewSkillDesc] = useState('');
+
+  // Auto-sync preview section when tab changes
+  const handleTabChange = (tab: typeof activeTab) => {
+    setActiveTab(tab);
+    if (tab === 'projects') setPreviewSection('projects');
+    else if (tab === 'services') setPreviewSection('services');
+    else if (tab === 'skills') setPreviewSection('skills');
+    else if (tab === 'experience') setPreviewSection('experience');
+    else if (tab === 'profile') setPreviewSection('home');
+    else if (tab === 'settings') setPreviewSection('home');
+  };
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(''), 3000);
+    setTimeout(() => setToastMessage(''), 2600);
   };
 
   const handleLogin = (e: React.FormEvent) => {
@@ -86,8 +122,9 @@ export const Admin: React.FC = () => {
       sessionStorage.setItem('mtk_admin_auth', 'true');
       setAuthError('');
       setPasswordInput('');
+      showToast('Authenticated · Live CMS Loaded');
     } else {
-      setAuthError('Invalid credentials. Accepted keys: admin, minthu, mtk2025');
+      setAuthError('Invalid passcode. Try: admin, minthu, mtk2025');
     }
   };
 
@@ -96,7 +133,7 @@ export const Admin: React.FC = () => {
     sessionStorage.removeItem('mtk_admin_auth');
   };
 
-  const handleClose = () => {
+  const handleExitAdmin = () => {
     setIsAdminOpen(false);
     if (window.location.pathname.toLowerCase() === '/admin') {
       window.history.replaceState(null, '', '/');
@@ -108,1242 +145,1225 @@ export const Admin: React.FC = () => {
   // Close on Escape key press
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isAdminOpen) {
-        handleClose();
+      if (e.key === 'Escape') {
+        handleExitAdmin();
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [isAdminOpen]);
+  }, []);
 
-  return (
-    <AnimatePresence>
-      {isAdminOpen && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.2 }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/80 backdrop-blur-xl"
-        >
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 8 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 8 }}
-            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-            className="relative w-full max-w-6xl max-h-[95vh] flex flex-col rounded-3xl bg-[#101014] border border-white/10 shadow-2xl overflow-hidden text-neutral-200"
+  const currentProject = projects.find((p) => p.id === activeProjectId) || projects[0] || null;
+  const currentService = services.find((s) => s.id === activeServiceId) || services[0] || null;
+  const currentExperience = experience.find((e) => e.id === activeExperienceId) || experience[0] || null;
+
+  // New Project creator
+  const handleCreateNewProject = () => {
+    const newP: Project = {
+      id: `proj-${Date.now()}`,
+      projectNumber: String(projects.length + 1).padStart(2, '0'),
+      title: 'New Case Study Title',
+      category: 'BRANDING & UI/UX',
+      role: 'Lead Designer & Strategist',
+      summary: 'Comprehensive overview of design challenges, client objectives, and technical execution.',
+      heroImage: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80',
+      images: [],
+      keyDeliverables: ['Visual Identity Guidelines', 'Interactive UI Prototypes'],
+      tools: ['Figma', 'Illustrator', 'React'],
+      technologies: ['TypeScript', 'Tailwind CSS'],
+      outcome: 'Resulted in 45% increase in client conversion and strong brand recognition.',
+      videoEmbedUrl: '',
+      published: true,
+      order: projects.length,
+    };
+    saveProject(newP);
+    setActiveProjectId(newP.id);
+    showToast('New Case Study Created');
+  };
+
+  // New Service creator
+  const handleCreateNewService = () => {
+    const newS: Service = {
+      id: `srv-${Date.now()}`,
+      number: String(services.length + 1).padStart(2, '0'),
+      title: 'New Strategic Offering',
+      shortDescription: 'Tailored strategic solution engineered for modern brand growth.',
+      fullDescription: 'Detailed scope of deliverables, methodology, and iterative client consultation.',
+      deliverables: ['Strategy Roadmap', 'Asset Library', 'Post-Launch Audit'],
+      keyFocus: 'Brand Strategy & Digital Growth',
+      published: true,
+      order: services.length,
+    };
+    saveService(newS);
+    setActiveServiceId(newS.id);
+    showToast('New Service Created');
+  };
+
+  // New Milestone creator
+  const handleCreateNewExperience = () => {
+    const newE: ExperienceItem = {
+      id: `exp-${Date.now()}`,
+      role: 'Creative Technologist & Consultant',
+      organizationOrFocus: 'Independent Studio',
+      period: '2025 — Present',
+      description: 'Orchestrating design systems, generative AI pipelines, and web applications.',
+      highlights: ['Managed brand overhauls', 'Architected multi-platform media'],
+      order: experience.length,
+      published: true,
+    };
+    saveExperience(newE);
+    setActiveExperienceId(newE.id);
+    showToast('New Experience Milestone Created');
+  };
+
+  // Backup import helper
+  const handleFileImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      if (content && importDataJson(content)) {
+        showToast('Backup Restored Successfully');
+      } else {
+        alert('Invalid JSON backup file structure.');
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  // =========================================================================
+  // 1. UN-AUTHENTICATED FULL-SCREEN LOGIN VIEW
+  // =========================================================================
+  if (!isAuthenticated) {
+    return (
+      <div className="h-screen w-screen overflow-hidden bg-slate-950 flex flex-col justify-between p-6 relative select-none">
+        {/* Ambient background glow */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          <div className="w-[500px] h-[500px] rounded-full bg-indigo-600/10 blur-[140px] absolute -top-20 -left-20" />
+          <div className="w-[500px] h-[500px] rounded-full bg-blue-600/10 blur-[140px] absolute -bottom-20 -right-20" />
+        </div>
+
+        {/* Top bar */}
+        <div className="w-full flex items-center justify-between relative z-10">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+              <Shield className="w-4 h-4" />
+            </div>
+            <span className="text-xs font-mono-tech uppercase tracking-widest text-slate-300 font-bold">
+              Min Thu Khant · Command CMS
+            </span>
+          </div>
+          <button
+            onClick={handleExitAdmin}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-mono-tech text-slate-300 transition-colors"
           >
-        
-        {/* Toast Notification */}
+            <span>Return to Portfolio</span>
+            <ArrowUpRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {/* Login form */}
+        <div className="relative z-10 w-full max-w-md mx-auto my-auto p-8 sm:p-10 rounded-3xl bg-[#111117]/90 backdrop-blur-2xl border border-white/15 shadow-2xl text-center">
+          <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 flex items-center justify-center mx-auto mb-4">
+            <Lock className="w-7 h-7" />
+          </div>
+
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-950/80 border border-indigo-500/40 text-indigo-300 text-[10px] font-mono-tech uppercase mb-3">
+            <span>Restricted Access · Passcode Protected</span>
+          </div>
+
+          <h2 className="text-2xl font-sans font-bold text-white mb-2 tracking-tight">
+            Administrator Authentication
+          </h2>
+          <p className="text-xs text-slate-400 font-sans mb-6 leading-relaxed">
+            Enter your administrator key to enter the Full-Screen Split-View CMS workspace.
+          </p>
+
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <input
+                type="password"
+                placeholder="Enter master password..."
+                value={passwordInput}
+                onChange={(e) => setPasswordInput(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/15 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-indigo-500 font-mono-tech transition-colors"
+                autoFocus
+              />
+              {authError && (
+                <p className="text-xs text-rose-400 font-mono-tech mt-2 text-left">
+                  {authError}
+                </p>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              className="w-full py-3 rounded-xl bg-white text-black font-mono-tech font-bold uppercase tracking-wider text-xs hover:bg-neutral-200 transition-colors shadow-lg min-h-[46px]"
+            >
+              Unlock Command CMS
+            </button>
+
+            <div className="pt-2 text-[10px] font-mono-tech text-slate-500 flex items-center justify-center gap-1.5">
+              <span>Accepted keys: </span>
+              <span className="text-slate-400 font-semibold">admin · minthu · mtk2025</span>
+            </div>
+          </form>
+        </div>
+
+        {/* Footer */}
+        <div className="w-full text-center relative z-10 text-[11px] font-mono-tech text-slate-600">
+          Min Thu Khant Portfolio · Live CMS Engine v3.5
+        </div>
+      </div>
+    );
+  }
+
+  // =========================================================================
+  // 2. FULL-SCREEN SPLIT-VIEW CMS (50% LEFT EDITOR / 50% RIGHT LIVE PREVIEW)
+  // =========================================================================
+  return (
+    <div className="fixed inset-0 z-50 h-screen w-screen overflow-hidden bg-slate-950 flex flex-col select-none text-slate-200">
+      
+      {/* Toast Notification */}
+      <AnimatePresence>
         {toastMessage && (
-          <div className="absolute top-4 right-4 z-50 flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500/90 text-black text-xs font-mono-tech font-bold uppercase shadow-xl animate-in fade-in slide-in-from-top-2">
+          <motion.div
+            initial={{ opacity: 0, y: -16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -16 }}
+            className="absolute top-4 right-6 z-50 flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 text-black text-xs font-mono-tech font-bold uppercase shadow-2xl"
+          >
             <Check className="w-4 h-4" />
             <span>{toastMessage}</span>
-          </div>
+          </motion.div>
         )}
+      </AnimatePresence>
 
-        {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-[#141419]">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
-              <Lock className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-base sm:text-lg font-sans font-bold text-white tracking-tight">
-                Portfolio Command & Administration
-              </h2>
-              <p className="text-[11px] font-mono-tech text-neutral-400">
-                {isAuthenticated ? 'Authenticated Session · Direct Content Management' : 'Restricted Area · Enter Passcode'}
-              </p>
-            </div>
+      {/* TOP CMS BAR */}
+      <header className="h-14 w-full bg-[#111116] border-b border-white/10 px-4 sm:px-6 flex items-center justify-between shrink-0 z-20">
+        
+        {/* Left: Branding & Status */}
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-xl bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400">
+            <Lock className="w-4 h-4" />
           </div>
-
-          <div className="flex items-center gap-2">
-            {isAuthenticated && (
-              <button
-                onClick={handleLogout}
-                className="px-3 py-1.5 rounded-lg text-xs font-mono-tech text-neutral-400 hover:text-white hover:bg-white/5 transition-colors"
-              >
-                Logout
-              </button>
-            )}
-            <button
-              onClick={handleClose}
-              className="p-2 rounded-xl text-neutral-400 hover:text-white hover:bg-white/10 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
-              aria-label="Close Admin Modal"
-            >
-              <X className="w-5 h-5" />
-            </button>
+          <div className="leading-none">
+            <div className="flex items-center gap-2">
+              <h1 className="text-xs sm:text-sm font-sans font-bold text-white tracking-tight">
+                PORTFOLIO COMMAND CMS
+              </h1>
+              <span className="px-2 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-500/40 text-[9px] font-mono-tech uppercase text-emerald-300 hidden sm:inline-block">
+                LIVE SPLIT-VIEW
+              </span>
+            </div>
+            <p className="text-[10px] font-mono-tech text-slate-400 mt-0.5">
+              Real-Time Reactive State & Synchronous LocalStorage Persistence
+            </p>
           </div>
         </div>
 
-        {/* Modal Content */}
-        {!isAuthenticated ? (
-          /* Login View */
-          <div className="p-8 sm:p-12 flex flex-col items-center justify-center max-w-md mx-auto my-auto text-center">
-            <div className="p-4 rounded-2xl bg-white/5 border border-white/10 mb-4 text-indigo-400">
-              <Lock className="w-8 h-8" />
-            </div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-950/60 border border-indigo-500/30 text-indigo-300 text-[10px] font-mono-tech uppercase mb-3">
-              <Shield className="w-3 h-3 text-indigo-400" />
-              <span>Firebase Auth & RBAC Protected</span>
-            </div>
-            <h3 className="text-xl font-sans font-bold text-white mb-2">
-              Authentication Required
-            </h3>
-            <p className="text-xs text-neutral-400 font-sans mb-6">
-              Enter your administration master key or password to manage projects, videos, profile details, and services.
-            </p>
-
-            <form onSubmit={handleLogin} className="w-full space-y-4">
-              <div>
-                <input
-                  type="password"
-                  placeholder="Enter admin master password..."
-                  value={passwordInput}
-                  onChange={(e) => setPasswordInput(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/15 text-white placeholder-neutral-500 text-sm focus:outline-none focus:border-indigo-500 font-mono-tech"
-                  autoFocus
-                />
-                {authError && (
-                  <p className="text-xs text-rose-400 font-mono-tech mt-2 text-left">
-                    {authError}
-                  </p>
-                )}
-              </div>
-              <button
-                type="submit"
-                className="w-full py-3 rounded-xl bg-white text-black font-mono-tech font-bold uppercase tracking-wider text-xs hover:bg-neutral-200 transition-colors min-h-[48px]"
-              >
-                Access Dashboard
-              </button>
-              <div className="pt-2 text-[10px] font-mono-tech text-neutral-500">
-                <span>Default Keys: </span>
-                <span className="text-neutral-400 font-bold">admin · minthu · mtk2025</span>
-              </div>
-            </form>
+        {/* Right: Actions */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-[10px] font-mono-tech text-emerald-400">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span>CHANGES LIVE SYNCED</span>
           </div>
-        ) : (
-          /* Authenticated Admin Workspace */
-          <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+
+          <button
+            onClick={handleExitAdmin}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white text-black hover:bg-neutral-200 text-xs font-mono-tech uppercase tracking-wider font-bold transition-colors min-h-[36px]"
+          >
+            <span>View Public Site</span>
+            <ArrowUpRight className="w-3.5 h-3.5" />
+          </button>
+
+          <button
+            onClick={handleLogout}
+            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+            title="Sign Out of CMS"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
+        </div>
+      </header>
+
+      {/* SPLIT SCREEN BODY CONTAINER (50% / 50%) */}
+      <div className="flex-1 flex flex-col lg:flex-row h-[calc(100vh-56px)] w-full overflow-hidden">
+        
+        {/* ================================================================= */}
+        {/* LEFT PANEL: 50% WIDTH EDITOR & FORM CONTROLS                      */}
+        {/* ================================================================= */}
+        <section className="w-full lg:w-1/2 h-full flex flex-col bg-[#0f0f14] border-r border-white/10 overflow-hidden">
+          
+          {/* Sub-Header Tabs */}
+          <div className="w-full border-b border-white/10 bg-[#131319] p-2 flex items-center gap-1 overflow-x-auto shrink-0 scrollbar-none">
+            <button
+              onClick={() => handleTabChange('projects')}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-mono-tech uppercase tracking-wider transition-all whitespace-nowrap min-h-[36px] ${
+                activeTab === 'projects'
+                  ? 'bg-indigo-600 text-white font-bold shadow'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <FolderKanban className="w-3.5 h-3.5" />
+              <span>Projects ({projects.length})</span>
+            </button>
+
+            <button
+              onClick={() => handleTabChange('profile')}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-mono-tech uppercase tracking-wider transition-all whitespace-nowrap min-h-[36px] ${
+                activeTab === 'profile'
+                  ? 'bg-indigo-600 text-white font-bold shadow'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <User className="w-3.5 h-3.5" />
+              <span>Profile & Bio</span>
+            </button>
+
+            <button
+              onClick={() => handleTabChange('services')}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-mono-tech uppercase tracking-wider transition-all whitespace-nowrap min-h-[36px] ${
+                activeTab === 'services'
+                  ? 'bg-indigo-600 text-white font-bold shadow'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span>Services ({services.length})</span>
+            </button>
+
+            <button
+              onClick={() => handleTabChange('skills')}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-mono-tech uppercase tracking-wider transition-all whitespace-nowrap min-h-[36px] ${
+                activeTab === 'skills'
+                  ? 'bg-indigo-600 text-white font-bold shadow'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <Cpu className="w-3.5 h-3.5" />
+              <span>Skills ({skills.length})</span>
+            </button>
+
+            <button
+              onClick={() => handleTabChange('experience')}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-mono-tech uppercase tracking-wider transition-all whitespace-nowrap min-h-[36px] ${
+                activeTab === 'experience'
+                  ? 'bg-indigo-600 text-white font-bold shadow'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <Clock className="w-3.5 h-3.5" />
+              <span>Experience ({experience.length})</span>
+            </button>
+
+            <button
+              onClick={() => handleTabChange('settings')}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-mono-tech uppercase tracking-wider transition-all whitespace-nowrap min-h-[36px] ${
+                activeTab === 'settings'
+                  ? 'bg-indigo-600 text-white font-bold shadow'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <SettingsIcon className="w-3.5 h-3.5" />
+              <span>Settings</span>
+            </button>
+
+            <button
+              onClick={() => handleTabChange('backup')}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-mono-tech uppercase tracking-wider transition-all whitespace-nowrap min-h-[36px] ${
+                activeTab === 'backup'
+                  ? 'bg-indigo-600 text-white font-bold shadow'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <Database className="w-3.5 h-3.5" />
+              <span>Backup</span>
+            </button>
+          </div>
+
+          {/* Left Panel Scrollable Content Body */}
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
             
-            {/* Sidebar Tabs */}
-            <div className="w-full md:w-56 border-b md:border-b-0 md:border-r border-white/10 bg-[#121216] p-3 flex md:flex-col gap-1 overflow-x-auto md:overflow-x-visible shrink-0">
-              <button
-                onClick={() => setActiveTab('projects')}
-                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-mono-tech uppercase tracking-wider transition-all min-h-[44px] whitespace-nowrap ${
-                  activeTab === 'projects'
-                    ? 'bg-white text-black font-bold shadow-md'
-                    : 'text-neutral-400 hover:text-white hover:bg-white/5'
-                }`}
-              >
-                <FolderKanban className="w-4 h-4" />
-                <span>Projects ({projects.length})</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('services')}
-                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-mono-tech uppercase tracking-wider transition-all min-h-[44px] whitespace-nowrap ${
-                  activeTab === 'services'
-                    ? 'bg-white text-black font-bold shadow-md'
-                    : 'text-neutral-400 hover:text-white hover:bg-white/5'
-                }`}
-              >
-                <Layers className="w-4 h-4" />
-                <span>Services ({services.length})</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('skills')}
-                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-mono-tech uppercase tracking-wider transition-all min-h-[44px] whitespace-nowrap ${
-                  activeTab === 'skills'
-                    ? 'bg-white text-black font-bold shadow-md'
-                    : 'text-neutral-400 hover:text-white hover:bg-white/5'
-                }`}
-              >
-                <Cpu className="w-4 h-4" />
-                <span>Skills ({skills.length})</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('experience')}
-                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-mono-tech uppercase tracking-wider transition-all min-h-[44px] whitespace-nowrap ${
-                  activeTab === 'experience'
-                    ? 'bg-white text-black font-bold shadow-md'
-                    : 'text-neutral-400 hover:text-white hover:bg-white/5'
-                }`}
-              >
-                <Clock className="w-4 h-4" />
-                <span>Experience ({experience.length})</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('profile')}
-                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-mono-tech uppercase tracking-wider transition-all min-h-[44px] whitespace-nowrap ${
-                  activeTab === 'profile'
-                    ? 'bg-white text-black font-bold shadow-md'
-                    : 'text-neutral-400 hover:text-white hover:bg-white/5'
-                }`}
-              >
-                <User className="w-4 h-4" />
-                <span>Profile & Bio</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('settings')}
-                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-mono-tech uppercase tracking-wider transition-all min-h-[44px] whitespace-nowrap ${
-                  activeTab === 'settings'
-                    ? 'bg-white text-black font-bold shadow-md'
-                    : 'text-neutral-400 hover:text-white hover:bg-white/5'
-                }`}
-              >
-                <SettingsIcon className="w-4 h-4" />
-                <span>Settings</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('backup')}
-                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-mono-tech uppercase tracking-wider transition-all min-h-[44px] whitespace-nowrap ${
-                  activeTab === 'backup'
-                    ? 'bg-white text-black font-bold shadow-md'
-                    : 'text-neutral-400 hover:text-white hover:bg-white/5'
-                }`}
-              >
-                <Database className="w-4 h-4" />
-                <span>Data Backup</span>
-              </button>
-            </div>
-
-            {/* Tab Workspace Body */}
-            <div className="flex-1 p-4 sm:p-6 overflow-y-auto max-h-[75vh]">
-              
-              {/* ========================================================= */}
-              {/* TAB 1: PROJECTS & EMBEDDED VIDEOS                         */}
-              {/* ========================================================= */}
-              {activeTab === 'projects' && (
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between pb-4 border-b border-white/10">
-                    <div>
-                      <h3 className="text-lg font-sans font-bold text-white">
-                        Case Studies & Works
-                      </h3>
-                      <p className="text-xs text-neutral-400 font-sans">
-                        Manage portfolio items, images, deliverables, and YouTube / TikTok video embeds.
-                      </p>
-                    </div>
-
-                    <button
-                      onClick={() => {
-                        const newP: Project = {
-                          id: `proj-${Date.now()}`,
-                          projectNumber: String(projects.length + 1).padStart(2, '0'),
-                          title: 'New Case Study Title',
-                          category: 'BRANDING & UI/UX',
-                          role: 'Lead Designer',
-                          summary: 'Project summary describing the scope and strategic impact...',
-                          heroImage: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80',
-                          images: [],
-                          keyDeliverables: ['Visual Identity System', 'Interactive UI Components'],
-                          tools: ['Figma', 'React', 'Tailwind CSS'],
-                          technologies: ['TypeScript', 'Vite'],
-                          outcome: 'Demonstrated measurable increase in user engagement and brand recognition.',
-                          videoEmbedUrl: '',
-                          published: true,
-                          order: projects.length,
-                        };
-                        setEditingProject(newP);
-                      }}
-                      className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white text-black text-xs font-mono-tech uppercase tracking-wider font-bold hover:bg-neutral-200 transition-colors min-h-[44px]"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>Add Project</span>
-                    </button>
-                  </div>
-
-                  {/* Project Editor Form Modal / Inline */}
-                  {editingProject ? (
-                    <div className="p-6 rounded-2xl bg-[#15151b] border border-white/15 space-y-4">
-                      <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                        <h4 className="text-sm font-mono-tech uppercase tracking-wider text-indigo-400 font-bold">
-                          {editingProject.id.startsWith('proj-') ? 'Create Project' : `Edit: ${editingProject.title}`}
-                        </h4>
-                        <button
-                          onClick={() => setEditingProject(null)}
-                          className="text-neutral-400 hover:text-white text-xs font-mono-tech"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-[11px] font-mono-tech uppercase text-neutral-300 mb-1">
-                            Project Title
-                          </label>
-                          <input
-                            type="text"
-                            value={editingProject.title}
-                            onChange={(e) => setEditingProject({ ...editingProject, title: e.target.value })}
-                            className="w-full px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-xs focus:outline-none focus:border-indigo-500"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-[11px] font-mono-tech uppercase text-neutral-300 mb-1">
-                            Category
-                          </label>
-                          <input
-                            type="text"
-                            value={editingProject.category}
-                            onChange={(e) => setEditingProject({ ...editingProject, category: e.target.value })}
-                            className="w-full px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-xs focus:outline-none focus:border-indigo-500"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-[11px] font-mono-tech uppercase text-neutral-300 mb-1">
-                            Role
-                          </label>
-                          <input
-                            type="text"
-                            value={editingProject.role}
-                            onChange={(e) => setEditingProject({ ...editingProject, role: e.target.value })}
-                            className="w-full px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-xs focus:outline-none focus:border-indigo-500"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-[11px] font-mono-tech uppercase text-neutral-300 mb-1">
-                            Hero Image URL
-                          </label>
-                          <input
-                            type="text"
-                            value={editingProject.heroImage}
-                            onChange={(e) => setEditingProject({ ...editingProject, heroImage: e.target.value })}
-                            className="w-full px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-xs focus:outline-none focus:border-indigo-500"
-                          />
-                        </div>
-
-                        {/* Video Embed Link Input */}
-                        <div className="md:col-span-2 p-4 rounded-xl bg-rose-950/20 border border-rose-500/20 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <label className="flex items-center gap-1.5 text-xs font-mono-tech uppercase text-rose-300 font-semibold">
-                              <Video className="w-4 h-4 text-rose-400" />
-                              <span>YouTube / TikTok Video Embed Link</span>
-                            </label>
-                            {editingProject.videoEmbedUrl && (
-                              <span className="text-[10px] font-mono-tech text-neutral-400">
-                                {getVideoEmbedInfo(editingProject.videoEmbedUrl) ? 'Valid Embed URL' : 'Checking format...'}
-                              </span>
-                            )}
-                          </div>
-                          
-                          <input
-                            type="url"
-                            placeholder="e.g. https://www.youtube.com/watch?v=... or https://www.tiktok.com/@user/video/..."
-                            value={editingProject.videoEmbedUrl || ''}
-                            onChange={(e) => setEditingProject({ ...editingProject, videoEmbedUrl: e.target.value })}
-                            className="w-full px-3.5 py-2.5 rounded-xl bg-black/50 border border-rose-500/30 text-white text-xs placeholder-neutral-500 focus:outline-none focus:border-rose-400 font-mono-tech"
-                          />
-
-                          <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-[11px] text-neutral-400">
-                            <span>
-                              Accepts YouTube regular videos, YouTube Shorts, or TikTok reel links. Rendered responsively.
-                            </span>
-                            {editingProject.videoEmbedUrl && (
-                              <a
-                                href={editingProject.videoEmbedUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 text-rose-300 hover:text-white"
-                              >
-                                <span>Test Link</span>
-                                <ExternalLink className="w-3 h-3" />
-                              </a>
-                            )}
-                          </div>
-
-                          {editingProject.videoEmbedUrl && getVideoEmbedInfo(editingProject.videoEmbedUrl) && (
-                            <div className="mt-3 p-3 rounded-xl bg-black/60 border border-white/10 space-y-2">
-                              <div className="flex items-center justify-between text-[11px] font-mono-tech text-neutral-300">
-                                <span className="text-rose-300 font-semibold">Live Video Embed Preview:</span>
-                                <span className="text-neutral-400">
-                                  {getVideoEmbedInfo(editingProject.videoEmbedUrl)?.type.toUpperCase()} · {getVideoEmbedInfo(editingProject.videoEmbedUrl)?.isVertical ? '9:16 Vertical Reel' : '16:9 Standard'}
-                                </span>
-                              </div>
-                              <div className={`relative rounded-lg overflow-hidden bg-black mx-auto border border-white/15 ${
-                                getVideoEmbedInfo(editingProject.videoEmbedUrl)?.isVertical 
-                                  ? 'w-full max-w-[240px] aspect-[9/16]' 
-                                  : 'w-full aspect-video'
-                              }`}>
-                                <iframe
-                                  src={getVideoEmbedInfo(editingProject.videoEmbedUrl)!.embedUrl}
-                                  title="Admin Video Preview"
-                                  className="w-full h-full"
-                                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                  allowFullScreen
-                                />
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="md:col-span-2">
-                          <label className="block text-[11px] font-mono-tech uppercase text-neutral-300 mb-1">
-                            Project Summary / Scope
-                          </label>
-                          <textarea
-                            rows={3}
-                            value={editingProject.summary}
-                            onChange={(e) => setEditingProject({ ...editingProject, summary: e.target.value })}
-                            className="w-full px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-xs focus:outline-none focus:border-indigo-500 font-sans"
-                          />
-                        </div>
-
-                        <div className="md:col-span-2">
-                          <label className="block text-[11px] font-mono-tech uppercase text-neutral-300 mb-1">
-                            Measurable Outcome / Business Impact
-                          </label>
-                          <input
-                            type="text"
-                            value={editingProject.outcome || ''}
-                            onChange={(e) => setEditingProject({ ...editingProject, outcome: e.target.value })}
-                            className="w-full px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-xs focus:outline-none focus:border-indigo-500"
-                          />
-                        </div>
-
-                        <div className="md:col-span-2">
-                          <label className="block text-[11px] font-mono-tech uppercase text-neutral-300 mb-1">
-                            Key Deliverables (comma separated)
-                          </label>
-                          <input
-                            type="text"
-                            value={editingProject.keyDeliverables.join(', ')}
-                            onChange={(e) =>
-                              setEditingProject({
-                                ...editingProject,
-                                keyDeliverables: e.target.value.split(',').map((s) => s.trim()).filter(Boolean),
-                              })
-                            }
-                            className="w-full px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-xs focus:outline-none focus:border-indigo-500"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-[11px] font-mono-tech uppercase text-neutral-300 mb-1">
-                            Tools Used (comma separated)
-                          </label>
-                          <input
-                            type="text"
-                            value={editingProject.tools.join(', ')}
-                            onChange={(e) =>
-                              setEditingProject({
-                                ...editingProject,
-                                tools: e.target.value.split(',').map((s) => s.trim()).filter(Boolean),
-                              })
-                            }
-                            className="w-full px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-xs focus:outline-none focus:border-indigo-500"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-[11px] font-mono-tech uppercase text-neutral-300 mb-1">
-                            Live Project Link (optional)
-                          </label>
-                          <input
-                            type="text"
-                            value={editingProject.projectLink || ''}
-                            onChange={(e) => setEditingProject({ ...editingProject, projectLink: e.target.value })}
-                            className="w-full px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-xs focus:outline-none focus:border-indigo-500"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/10">
-                        <button
-                          onClick={() => setEditingProject(null)}
-                          className="px-4 py-2 rounded-xl text-xs font-mono-tech text-neutral-400 hover:text-white"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={() => {
-                            saveProject(editingProject);
-                            setEditingProject(null);
-                            showToast('Project updated successfully');
-                          }}
-                          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-mono-tech uppercase tracking-wider font-bold shadow-md"
-                        >
-                          <Save className="w-4 h-4" />
-                          <span>Save Project</span>
-                        </button>
-                      </div>
-                    </div>
-                  ) : null}
-
-                  {/* Existing Projects Table */}
-                  <div className="space-y-3">
-                    {projects.map((proj) => (
-                      <div
-                        key={proj.id}
-                        className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-2xl bg-white/[0.02] border border-white/10 hover:border-white/20 transition-all"
-                      >
-                        <div className="flex items-center gap-3.5 min-w-0">
-                          <img
-                            src={proj.heroImage}
-                            alt={proj.title}
-                            className="w-14 h-14 rounded-xl object-cover bg-black/50 shrink-0 border border-white/10"
-                            referrerPolicy="no-referrer"
-                          />
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs font-mono-tech text-indigo-400">
-                                #{proj.projectNumber}
-                              </span>
-                              <h4 className="text-sm font-sans font-bold text-white truncate">
-                                {proj.title}
-                              </h4>
-                              {proj.videoEmbedUrl && (
-                                <span className="flex items-center gap-1 px-1.5 py-0.2 rounded bg-rose-950 border border-rose-500/40 text-[9px] font-mono-tech text-rose-300">
-                                  <Play className="w-2 h-2 fill-rose-300" />
-                                  <span>VIDEO</span>
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-xs text-neutral-400 font-sans truncate">
-                              {proj.category} · {proj.role}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                          <button
-                            onClick={() => setEditingProject({ ...proj })}
-                            className="flex items-center gap-1 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-mono-tech text-neutral-300 hover:text-white transition-colors"
-                          >
-                            <Edit3 className="w-3.5 h-3.5" />
-                            <span>Edit</span>
-                          </button>
-                          <button
-                            onClick={() => {
-                              if (confirm(`Delete project "${proj.title}"?`)) {
-                                deleteProject(proj.id);
-                                showToast('Project deleted');
-                              }
-                            }}
-                            className="p-2 rounded-xl text-neutral-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
-                            aria-label="Delete project"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* ========================================================= */}
-              {/* TAB 2: SERVICES                                           */}
-              {/* ========================================================= */}
-              {activeTab === 'services' && (
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between pb-4 border-b border-white/10">
-                    <div>
-                      <h3 className="text-lg font-sans font-bold text-white">
-                        Services & Offerings
-                      </h3>
-                      <p className="text-xs text-neutral-400 font-sans">
-                        Manage your 5 core strategic offerings and deliverables.
-                      </p>
-                    </div>
-
-                    <button
-                      onClick={() => {
-                        const newS: Service = {
-                          id: `serv-${Date.now()}`,
-                          number: String(services.length + 1).padStart(2, '0'),
-                          title: 'New Strategic Offering',
-                          shortDescription: 'Short summary of the offering and impact...',
-                          fullDescription: 'Comprehensive breakdown of how this service is delivered...',
-                          deliverables: ['Custom Strategic Plan', 'Final Production Artifacts'],
-                          keyFocus: 'Design & Code Excellence',
-                          published: true,
-                          order: services.length,
-                        };
-                        setEditingService(newS);
-                      }}
-                      className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white text-black text-xs font-mono-tech uppercase tracking-wider font-bold hover:bg-neutral-200 transition-colors min-h-[44px]"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>Add Service</span>
-                    </button>
-                  </div>
-
-                  {editingService && (
-                    <div className="p-6 rounded-2xl bg-[#15151b] border border-white/15 space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-[11px] font-mono-tech uppercase text-neutral-300 mb-1">
-                            Service Title
-                          </label>
-                          <input
-                            type="text"
-                            value={editingService.title}
-                            onChange={(e) => setEditingService({ ...editingService, title: e.target.value })}
-                            className="w-full px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-xs focus:outline-none focus:border-indigo-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-mono-tech uppercase text-neutral-300 mb-1">
-                            Key Focus / Tagline
-                          </label>
-                          <input
-                            type="text"
-                            value={editingService.keyFocus}
-                            onChange={(e) => setEditingService({ ...editingService, keyFocus: e.target.value })}
-                            className="w-full px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-xs focus:outline-none focus:border-indigo-500"
-                          />
-                        </div>
-                        <div className="md:col-span-2">
-                          <label className="block text-[11px] font-mono-tech uppercase text-neutral-300 mb-1">
-                            Short Summary
-                          </label>
-                          <input
-                            type="text"
-                            value={editingService.shortDescription}
-                            onChange={(e) => setEditingService({ ...editingService, shortDescription: e.target.value })}
-                            className="w-full px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-xs focus:outline-none focus:border-indigo-500"
-                          />
-                        </div>
-                        <div className="md:col-span-2">
-                          <label className="block text-[11px] font-mono-tech uppercase text-neutral-300 mb-1">
-                            Deliverables (comma separated)
-                          </label>
-                          <input
-                            type="text"
-                            value={editingService.deliverables.join(', ')}
-                            onChange={(e) =>
-                              setEditingService({
-                                ...editingService,
-                                deliverables: e.target.value.split(',').map((s) => s.trim()).filter(Boolean),
-                              })
-                            }
-                            className="w-full px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-xs focus:outline-none focus:border-indigo-500"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="flex justify-end gap-2 pt-4 border-t border-white/10">
-                        <button
-                          onClick={() => setEditingService(null)}
-                          className="px-4 py-2 text-xs font-mono-tech text-neutral-400"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={() => {
-                            saveService(editingService);
-                            setEditingService(null);
-                            showToast('Service saved');
-                          }}
-                          className="px-5 py-2 rounded-xl bg-indigo-600 text-white text-xs font-mono-tech font-bold uppercase"
-                        >
-                          Save Service
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="space-y-3">
-                    {services.map((srv) => (
-                      <div
-                        key={srv.id}
-                        className="flex items-center justify-between p-4 rounded-2xl bg-white/[0.02] border border-white/10"
-                      >
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-mono-tech text-indigo-400">
-                              {srv.number}
-                            </span>
-                            <h4 className="text-sm font-sans font-bold text-white">
-                              {srv.title}
-                            </h4>
-                          </div>
-                          <p className="text-xs text-neutral-400 font-sans mt-0.5">
-                            {srv.shortDescription}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => setEditingService({ ...srv })}
-                            className="px-3 py-1.5 rounded-xl bg-white/5 text-xs font-mono-tech text-neutral-300"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => {
-                              if (confirm(`Delete service "${srv.title}"?`)) {
-                                deleteService(srv.id);
-                                showToast('Service deleted');
-                              }
-                            }}
-                            className="p-1.5 text-neutral-500 hover:text-rose-400"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* ========================================================= */}
-              {/* TAB 3: SKILLS                                             */}
-              {/* ========================================================= */}
-              {activeTab === 'skills' && (
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between pb-4 border-b border-white/10">
-                    <div>
-                      <h3 className="text-lg font-sans font-bold text-white">
-                        Skills & Competencies
-                      </h3>
-                      <p className="text-xs text-neutral-400 font-sans">
-                        Manage technical and creative skills across Design, Development, and Strategy.
-                      </p>
-                    </div>
-
-                    <button
-                      onClick={() => {
-                        setEditingSkill({
-                          name: 'New Skill',
-                          category: 'DESIGN',
-                          description: 'Core proficiency and real-world application.',
-                        });
-                      }}
-                      className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white text-black text-xs font-mono-tech uppercase tracking-wider font-bold hover:bg-neutral-200 transition-colors min-h-[44px]"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>Add Skill</span>
-                    </button>
-                  </div>
-
-                  {editingSkill && (
-                    <div className="p-4 rounded-2xl bg-[#15151b] border border-white/15 space-y-3">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-[11px] font-mono-tech uppercase text-neutral-300 mb-1">
-                            Skill Name
-                          </label>
-                          <input
-                            type="text"
-                            value={editingSkill.name}
-                            onChange={(e) => setEditingSkill({ ...editingSkill, name: e.target.value })}
-                            className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-xs"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-mono-tech uppercase text-neutral-300 mb-1">
-                            Category
-                          </label>
-                          <select
-                            value={editingSkill.category}
-                            onChange={(e) => setEditingSkill({ ...editingSkill, category: e.target.value as any })}
-                            className="w-full px-3 py-2 rounded-xl bg-[#1c1c22] border border-white/10 text-white text-xs"
-                          >
-                            <option value="DESIGN">DESIGN</option>
-                            <option value="WEB">WEB / DEVELOPMENT</option>
-                            <option value="CREATIVE">CREATIVE & CONTENT</option>
-                            <option value="AI / TECHNOLOGY">AI / STRATEGY</option>
-                          </select>
-                        </div>
-                      </div>
-                      <div className="flex justify-end gap-2 pt-2">
-                        <button
-                          onClick={() => setEditingSkill(null)}
-                          className="px-3 py-1.5 text-xs font-mono-tech text-neutral-400"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={() => {
-                            saveSkill(editingSkill);
-                            setEditingSkill(null);
-                            showToast('Skill saved');
-                          }}
-                          className="px-4 py-1.5 rounded-xl bg-indigo-600 text-white text-xs font-mono-tech font-bold"
-                        >
-                          Save Skill
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {skills.map((s, idx) => (
-                      <div
-                        key={idx}
-                        className="flex items-center justify-between p-3.5 rounded-xl bg-white/[0.02] border border-white/10"
-                      >
-                        <div>
-                          <span className="text-xs font-mono-tech text-indigo-400 block">
-                            {s.category}
-                          </span>
-                          <span className="text-sm font-sans font-bold text-white">
-                            {s.name}
-                          </span>
-                        </div>
-                        <button
-                          onClick={() => {
-                            deleteSkill(s.name);
-                            showToast('Skill deleted');
-                          }}
-                          className="p-1.5 text-neutral-500 hover:text-rose-400"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* ========================================================= */}
-              {/* TAB 4: EXPERIENCE                                         */}
-              {/* ========================================================= */}
-              {activeTab === 'experience' && (
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between pb-4 border-b border-white/10">
-                    <div>
-                      <h3 className="text-lg font-sans font-bold text-white">
-                        Career & Experience Timeline
-                      </h3>
-                      <p className="text-xs text-neutral-400 font-sans">
-                        Add and edit your professional milestones and organizational roles.
-                      </p>
-                    </div>
-
-                    <button
-                      onClick={() => {
-                        const newExp: ExperienceItem = {
-                          id: `exp-${Date.now()}`,
-                          role: 'Senior Digital Strategist & Designer',
-                          organizationOrFocus: 'Agency / Studio / Enterprise',
-                          period: '2024 — Present',
-                          description: 'Led end-to-end creative direction and digital implementation.',
-                          highlights: ['Delivered multi-channel digital assets', 'Improved team workflow velocity'],
-                          order: experience.length,
-                          published: true,
-                        };
-                        setEditingExperience(newExp);
-                      }}
-                      className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white text-black text-xs font-mono-tech uppercase tracking-wider font-bold hover:bg-neutral-200 transition-colors min-h-[44px]"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>Add Milestone</span>
-                    </button>
-                  </div>
-
-                  {editingExperience && (
-                    <div className="p-4 rounded-2xl bg-[#15151b] border border-white/15 space-y-3">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-[11px] font-mono-tech uppercase text-neutral-300 mb-1">
-                            Role Title
-                          </label>
-                          <input
-                            type="text"
-                            value={editingExperience.role}
-                            onChange={(e) => setEditingExperience({ ...editingExperience, role: e.target.value })}
-                            className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-xs"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-mono-tech uppercase text-neutral-300 mb-1">
-                            Organization / Client Focus
-                          </label>
-                          <input
-                            type="text"
-                            value={editingExperience.organizationOrFocus}
-                            onChange={(e) =>
-                              setEditingExperience({ ...editingExperience, organizationOrFocus: e.target.value })
-                            }
-                            className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-xs"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-mono-tech uppercase text-neutral-300 mb-1">
-                            Period (e.g. 2024 — Present)
-                          </label>
-                          <input
-                            type="text"
-                            value={editingExperience.period}
-                            onChange={(e) => setEditingExperience({ ...editingExperience, period: e.target.value })}
-                            className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-xs"
-                          />
-                        </div>
-                      </div>
-                      <div className="flex justify-end gap-2 pt-2">
-                        <button
-                          onClick={() => setEditingExperience(null)}
-                          className="px-3 py-1.5 text-xs font-mono-tech text-neutral-400"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={() => {
-                            saveExperience(editingExperience);
-                            setEditingExperience(null);
-                            showToast('Experience updated');
-                          }}
-                          className="px-4 py-1.5 rounded-xl bg-indigo-600 text-white text-xs font-mono-tech font-bold"
-                        >
-                          Save Milestone
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="space-y-3">
-                    {experience.map((item) => (
-                      <div
-                        key={item.id}
-                        className="flex items-center justify-between p-4 rounded-xl bg-white/[0.02] border border-white/10"
-                      >
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-mono-tech text-indigo-400">
-                              {item.period}
-                            </span>
-                            <h4 className="text-sm font-sans font-bold text-white">
-                              {item.role}
-                            </h4>
-                          </div>
-                          <p className="text-xs text-neutral-400 font-sans">
-                            {item.organizationOrFocus}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => setEditingExperience({ ...item })}
-                            className="px-3 py-1.5 rounded-xl bg-white/5 text-xs font-mono-tech text-neutral-300"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => {
-                              deleteExperience(item.id);
-                              showToast('Experience item deleted');
-                            }}
-                            className="p-1.5 text-neutral-500 hover:text-rose-400"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* ========================================================= */}
-              {/* TAB 5: PROFILE & BIO                                      */}
-              {/* ========================================================= */}
-              {activeTab === 'profile' && (
-                <div className="space-y-6">
-                  <div className="pb-4 border-b border-white/10">
-                    <h3 className="text-lg font-sans font-bold text-white">
-                      Profile & Biographic Information
-                    </h3>
-                    <p className="text-xs text-neutral-400 font-sans">
-                      Update your personal branding, slogans, portraits, and contact information.
+            {/* ------------------------------------------------------------- */}
+            {/* TAB 1: PROJECTS & VIDEO EMBED CMS                             */}
+            {/* ------------------------------------------------------------- */}
+            {activeTab === 'projects' && (
+              <div className="space-y-6">
+                <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-white/10">
+                  <div>
+                    <h2 className="text-base font-sans font-bold text-white tracking-tight">
+                      Projects & Video Embeds
+                    </h2>
+                    <p className="text-xs text-slate-400">
+                      Live keystrokes immediately reflect on the right live preview.
                     </p>
                   </div>
+                  <button
+                    onClick={handleCreateNewProject}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white text-black text-xs font-mono-tech uppercase tracking-wider font-bold hover:bg-neutral-200 transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>New Project</span>
+                  </button>
+                </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Project Selector Carousel */}
+                <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin">
+                  {projects.map((proj) => (
+                    <button
+                      key={proj.id}
+                      onClick={() => setActiveProjectId(proj.id)}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-mono-tech transition-all shrink-0 border ${
+                        (currentProject?.id === proj.id)
+                          ? 'bg-indigo-950/80 border-indigo-500 text-white font-bold shadow-md'
+                          : 'bg-white/5 border-white/10 text-slate-400 hover:text-white hover:bg-white/10'
+                      }`}
+                    >
+                      <span className="text-indigo-400">{proj.projectNumber}</span>
+                      <span className="truncate max-w-[140px]">{proj.title}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Project Editor Form */}
+                {currentProject ? (
+                  <div className="p-5 rounded-2xl bg-[#14141a] border border-white/10 space-y-4">
+                    <div className="flex items-center justify-between pb-3 border-b border-white/10">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded bg-indigo-600/30 text-indigo-300 text-[10px] font-mono-tech font-bold uppercase">
+                          EDITING #{currentProject.projectNumber}
+                        </span>
+                        <h3 className="text-sm font-sans font-bold text-white truncate max-w-xs">
+                          {currentProject.title}
+                        </h3>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <label className="flex items-center gap-1.5 text-xs font-mono-tech text-slate-300 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={currentProject.published}
+                            onChange={(e) => updateProjectField(currentProject.id, 'published', e.target.checked)}
+                            className="rounded bg-white/10 border-white/20 text-indigo-500"
+                          />
+                          <span>Published</span>
+                        </label>
+                        <button
+                          onClick={() => {
+                            if (confirm(`Delete project "${currentProject.title}"?`)) {
+                              deleteProject(currentProject.id);
+                              showToast('Project deleted');
+                            }
+                          }}
+                          className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/20 transition-colors"
+                          title="Delete project"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-mono-tech uppercase text-slate-400 mb-1">
+                          Project Number
+                        </label>
+                        <input
+                          type="text"
+                          value={currentProject.projectNumber}
+                          onChange={(e) => updateProjectField(currentProject.id, 'projectNumber', e.target.value)}
+                          className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono-tech focus:border-indigo-500 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-mono-tech uppercase text-slate-400 mb-1">
+                          Category Label
+                        </label>
+                        <input
+                          type="text"
+                          value={currentProject.category}
+                          onChange={(e) => updateProjectField(currentProject.id, 'category', e.target.value)}
+                          className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono-tech focus:border-indigo-500 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+
                     <div>
-                      <label className="block text-[11px] font-mono-tech uppercase text-neutral-300 mb-1">
-                        Full Name
+                      <label className="block text-xs font-mono-tech uppercase text-slate-400 mb-1">
+                        Project Title
                       </label>
                       <input
                         type="text"
-                        value={profile.name}
-                        onChange={(e) => updateProfile({ name: e.target.value })}
-                        className="w-full px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-xs"
+                        value={currentProject.title}
+                        onChange={(e) => updateProjectField(currentProject.id, 'title', e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/15 text-white text-sm font-sans font-bold focus:border-indigo-500 focus:outline-none"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-mono-tech uppercase text-neutral-300 mb-1">
-                        Nickname / Alias
+                      <label className="block text-xs font-mono-tech uppercase text-slate-400 mb-1">
+                        Role
                       </label>
                       <input
                         type="text"
-                        value={profile.nickname}
-                        onChange={(e) => updateProfile({ nickname: e.target.value })}
-                        className="w-full px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-xs"
+                        value={currentProject.role}
+                        onChange={(e) => updateProjectField(currentProject.id, 'role', e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-sans focus:border-indigo-500 focus:outline-none"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-mono-tech uppercase text-neutral-300 mb-1">
-                        Primary Title
+                      <label className="block text-xs font-mono-tech uppercase text-slate-400 mb-1">
+                        Summary
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={currentProject.summary}
+                        onChange={(e) => updateProjectField(currentProject.id, 'summary', e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-sans leading-relaxed focus:border-indigo-500 focus:outline-none resize-none"
+                      />
+                    </div>
+
+                    {/* Hero Image with Google Drive auto converter */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-mono-tech uppercase text-slate-400">
+                          Hero Image URL (Supports Direct Google Drive Links)
+                        </label>
+                        {currentProject.heroImage && (
+                          <span className="text-[10px] font-mono-tech text-emerald-400">
+                            Auto-converted to CDN
+                          </span>
+                        )}
+                      </div>
+                      <input
+                        type="text"
+                        value={currentProject.heroImage}
+                        placeholder="https://images.unsplash... or drive.google.com/file/d/..."
+                        onChange={(e) => {
+                          const converted = getDirectDriveUrl(e.target.value);
+                          updateProjectField(currentProject.id, 'heroImage', converted);
+                        }}
+                        className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono-tech focus:border-indigo-500 focus:outline-none"
+                      />
+                      {currentProject.heroImage && (
+                        <div className="mt-2 relative aspect-video w-36 rounded-lg overflow-hidden border border-white/10 bg-black">
+                          <img
+                            src={currentProject.heroImage}
+                            alt="Preview"
+                            className="w-full h-full object-cover"
+                            referrerPolicy="no-referrer"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* YouTube / TikTok Video Embed URL */}
+                    <div className="p-3.5 rounded-xl bg-indigo-950/20 border border-indigo-500/30 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="flex items-center gap-1.5 text-xs font-mono-tech uppercase font-bold text-indigo-300">
+                          <Video className="w-3.5 h-3.5" />
+                          <span>Video Presentation Embed (YouTube or TikTok)</span>
+                        </label>
+                        {currentProject.videoEmbedUrl && (
+                          <span className="text-[10px] font-mono-tech text-emerald-400">
+                            {getVideoEmbedInfo(currentProject.videoEmbedUrl)?.type || 'Detected'}
+                          </span>
+                        )}
+                      </div>
+                      <input
+                        type="text"
+                        placeholder="https://www.youtube.com/watch?v=... or tiktok.com/@user/video/..."
+                        value={currentProject.videoEmbedUrl || ''}
+                        onChange={(e) => updateProjectField(currentProject.id, 'videoEmbedUrl', e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono-tech focus:border-indigo-500 focus:outline-none"
+                      />
+                      <p className="text-[11px] font-sans text-slate-400">
+                        Supports standard YouTube videos, YouTube Shorts, and TikTok video URLs. Will render in an interactive responsive video frame.
+                      </p>
+                    </div>
+
+                    {/* Tools (comma separated) */}
+                    <div>
+                      <label className="block text-xs font-mono-tech uppercase text-slate-400 mb-1">
+                        Tools (Comma separated)
                       </label>
                       <input
                         type="text"
-                        value={profile.title}
-                        onChange={(e) => updateProfile({ title: e.target.value })}
-                        className="w-full px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-xs"
+                        value={currentProject.tools.join(', ')}
+                        onChange={(e) =>
+                          updateProjectField(
+                            currentProject.id,
+                            'tools',
+                            e.target.value.split(',').map((s) => s.trim()).filter(Boolean)
+                          )
+                        }
+                        className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono-tech focus:border-indigo-500 focus:outline-none"
                       />
                     </div>
 
+                    {/* Technologies (comma separated) */}
                     <div>
-                      <label className="block text-[11px] font-mono-tech uppercase text-neutral-300 mb-1">
-                        Official Slogan
+                      <label className="block text-xs font-mono-tech uppercase text-slate-400 mb-1">
+                        Technologies & Methodologies (Comma separated)
                       </label>
                       <input
                         type="text"
-                        value={profile.slogan}
-                        onChange={(e) => updateProfile({ slogan: e.target.value })}
-                        className="w-full px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-xs"
+                        value={currentProject.technologies.join(', ')}
+                        onChange={(e) =>
+                          updateProjectField(
+                            currentProject.id,
+                            'technologies',
+                            e.target.value.split(',').map((s) => s.trim()).filter(Boolean)
+                          )
+                        }
+                        className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono-tech focus:border-indigo-500 focus:outline-none"
                       />
                     </div>
 
+                    {/* Measurable Outcome */}
                     <div>
-                      <label className="block text-[11px] font-mono-tech uppercase text-neutral-300 mb-1">
-                        Portrait Photo URL
-                      </label>
-                      <input
-                        type="text"
-                        value={profile.portraitUrl}
-                        onChange={(e) => updateProfile({ portraitUrl: e.target.value })}
-                        className="w-full px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-xs"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-mono-tech uppercase text-neutral-300 mb-1">
-                        Contact Email
-                      </label>
-                      <input
-                        type="email"
-                        value={profile.email}
-                        onChange={(e) => updateProfile({ email: e.target.value })}
-                        className="w-full px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-xs"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-mono-tech uppercase text-neutral-300 mb-1">
-                        Direct Phone / Call Number
-                      </label>
-                      <input
-                        type="text"
-                        value={profile.phone || ''}
-                        placeholder="+95 9 798 886 644"
-                        onChange={(e) => updateProfile({ phone: e.target.value })}
-                        className="w-full px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-xs"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-mono-tech uppercase text-neutral-300 mb-1">
-                        Viber Chat Number
-                      </label>
-                      <input
-                        type="text"
-                        value={profile.viberNumber || ''}
-                        placeholder="+95 9 798 886 644"
-                        onChange={(e) => updateProfile({ viberNumber: e.target.value })}
-                        className="w-full px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-xs"
-                      />
-                    </div>
-
-                    <div className="md:col-span-2">
-                      <label className="block text-[11px] font-mono-tech uppercase text-neutral-300 mb-1">
-                        Hero Supporting Statement
+                      <label className="block text-xs font-mono-tech uppercase text-slate-400 mb-1">
+                        Impact & Measurable Outcome
                       </label>
                       <textarea
                         rows={2}
-                        value={profile.supportingStatement}
-                        onChange={(e) => updateProfile({ supportingStatement: e.target.value })}
-                        className="w-full px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-xs font-sans"
+                        value={currentProject.outcome || ''}
+                        onChange={(e) => updateProjectField(currentProject.id, 'outcome', e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-sans focus:border-indigo-500 focus:outline-none resize-none"
                       />
                     </div>
 
-                    <div className="md:col-span-2">
-                      <label className="block text-[11px] font-mono-tech uppercase text-neutral-300 mb-1">
-                        Full About Story & Philosophy
+                    {/* Project Link */}
+                    <div>
+                      <label className="block text-xs font-mono-tech uppercase text-slate-400 mb-1">
+                        Live Project / GitHub URL
                       </label>
-                      <textarea
-                        rows={4}
-                        value={profile.aboutBody}
-                        onChange={(e) => updateProfile({ aboutBody: e.target.value })}
-                        className="w-full px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-xs font-sans"
+                      <input
+                        type="text"
+                        value={currentProject.projectLink || ''}
+                        placeholder="https://..."
+                        onChange={(e) => updateProjectField(currentProject.id, 'projectLink', e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono-tech focus:border-indigo-500 focus:outline-none"
                       />
                     </div>
                   </div>
+                ) : (
+                  <p className="text-xs text-slate-400">No project selected.</p>
+                )}
+              </div>
+            )}
 
+            {/* ------------------------------------------------------------- */}
+            {/* TAB 2: PROFILE & BIO CMS                                       */}
+            {/* ------------------------------------------------------------- */}
+            {activeTab === 'profile' && (
+              <div className="p-5 rounded-2xl bg-[#14141a] border border-white/10 space-y-4">
+                <div className="pb-3 border-b border-white/10">
+                  <h2 className="text-base font-sans font-bold text-white tracking-tight">
+                    Identity, Biography & Portrait Settings
+                  </h2>
+                  <p className="text-xs text-slate-400">
+                    Controls header branding, hero typography, and editorial portrait.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-mono-tech uppercase text-slate-400 mb-1">
+                      Full Name
+                    </label>
+                    <input
+                      type="text"
+                      value={profile.name}
+                      onChange={(e) => updateProfile({ name: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/15 text-white text-sm font-bold focus:border-indigo-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-mono-tech uppercase text-slate-400 mb-1">
+                      Nickname (English Callout)
+                    </label>
+                    <input
+                      type="text"
+                      value={profile.nickname}
+                      onChange={(e) => updateProfile({ nickname: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono-tech focus:border-indigo-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-mono-tech uppercase text-slate-400 mb-1">
+                    Philosophy Slogan
+                  </label>
+                  <input
+                    type="text"
+                    value={profile.slogan}
+                    onChange={(e) => updateProfile({ slogan: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono-tech focus:border-indigo-500 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-mono-tech uppercase text-slate-400 mb-1">
+                    Hero Bio Description
+                  </label>
+                  <textarea
+                    rows={4}
+                    value={profile.positioning}
+                    onChange={(e) => updateProfile({ positioning: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-sans leading-relaxed focus:border-indigo-500 focus:outline-none resize-none"
+                  />
+                </div>
+
+                {/* Portrait URL with Direct Google Drive URL parsing */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-mono-tech uppercase text-slate-400">
+                      Personal Portrait URL (Direct Drive Link or Image URL)
+                    </label>
+                    <span className="text-[10px] font-mono-tech text-indigo-400">
+                      Auto-converted to direct CDN
+                    </span>
+                  </div>
+                  <input
+                    type="text"
+                    value={profile.portraitUrl}
+                    onChange={(e) => {
+                      const converted = getDirectDriveUrl(e.target.value);
+                      updateProfile({ portraitUrl: converted, avatarUrl: converted });
+                    }}
+                    className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono-tech focus:border-indigo-500 focus:outline-none"
+                  />
+                  {profile.portraitUrl && (
+                    <div className="mt-3 flex items-center gap-3">
+                      <img
+                        src={profile.portraitUrl}
+                        alt="Portrait thumbnail"
+                        className="w-16 h-20 rounded-xl object-cover border border-white/20"
+                        referrerPolicy="no-referrer"
+                      />
+                      <span className="text-xs font-mono-tech text-slate-400">
+                        Current high-res editorial portrait
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-mono-tech uppercase text-slate-400 mb-1">
+                      Direct Cellular Phone
+                    </label>
+                    <input
+                      type="text"
+                      value={profile.phone || ''}
+                      onChange={(e) => updateProfile({ phone: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono-tech focus:border-indigo-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-mono-tech uppercase text-slate-400 mb-1">
+                      Viber Contact Number
+                    </label>
+                    <input
+                      type="text"
+                      value={profile.viberNumber || ''}
+                      onChange={(e) => updateProfile({ viberNumber: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono-tech focus:border-indigo-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-mono-tech uppercase text-slate-400 mb-1">
+                      Primary Email
+                    </label>
+                    <input
+                      type="email"
+                      value={profile.email}
+                      onChange={(e) => updateProfile({ email: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono-tech focus:border-indigo-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-mono-tech uppercase text-slate-400 mb-1">
+                      Location
+                    </label>
+                    <input
+                      type="text"
+                      value={profile.location}
+                      onChange={(e) => updateProfile({ location: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono-tech focus:border-indigo-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ------------------------------------------------------------- */}
+            {/* TAB 3: SERVICES CMS                                            */}
+            {/* ------------------------------------------------------------- */}
+            {activeTab === 'services' && (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between pb-4 border-b border-white/10">
+                  <div>
+                    <h2 className="text-base font-sans font-bold text-white tracking-tight">
+                      Strategic Services
+                    </h2>
+                    <p className="text-xs text-slate-400">
+                      Manage client service offerings and deliverables.
+                    </p>
+                  </div>
                   <button
-                    onClick={() => showToast('Profile updated')}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-mono-tech uppercase tracking-wider font-bold shadow-md"
+                    onClick={handleCreateNewService}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white text-black text-xs font-mono-tech uppercase font-bold hover:bg-neutral-200 transition-colors"
                   >
-                    <Save className="w-4 h-4" />
-                    <span>Save Profile Changes</span>
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>New Service</span>
                   </button>
                 </div>
-              )}
 
-              {/* ========================================================= */}
-              {/* TAB 6: SETTINGS & VISIBILITY                              */}
-              {/* ========================================================= */}
-              {activeTab === 'settings' && (
-                <div className="space-y-6">
-                  <div className="pb-4 border-b border-white/10">
-                    <h3 className="text-lg font-sans font-bold text-white">
-                      Section Visibility & SEO Configuration
-                    </h3>
-                    <p className="text-xs text-neutral-400 font-sans">
-                      Toggle active portfolio sections and manage meta titles.
-                    </p>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="text-xs font-mono-tech uppercase text-neutral-400 tracking-wider">
-                      Active Navigation Sections
-                    </div>
-
-                    {Object.entries(settings.visibility).map(([key, val]) => {
-                      if (key === 'prompts') return null; // AI Prompts removed permanently
-                      return (
-                        <label
-                          key={key}
-                          className="flex items-center justify-between p-3.5 rounded-xl bg-white/[0.02] border border-white/10 cursor-pointer"
-                        >
-                          <span className="text-xs font-mono-tech uppercase text-white">
-                            {key} Section
-                          </span>
-                          <input
-                            type="checkbox"
-                            checked={Boolean(val)}
-                            onChange={(e) => {
-                              updateSettings({
-                                visibility: {
-                                  ...settings.visibility,
-                                  [key]: e.target.checked,
-                                },
-                              });
-                            }}
-                            className="w-4 h-4 rounded text-indigo-600 focus:ring-0"
-                          />
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* ========================================================= */}
-              {/* TAB 7: BACKUP & LOCALSTORAGE IMPORT/EXPORT                */}
-              {/* ========================================================= */}
-              {activeTab === 'backup' && (
-                <div className="space-y-6">
-                  <div className="pb-4 border-b border-white/10">
-                    <h3 className="text-lg font-sans font-bold text-white">
-                      Data Persistence & JSON Backup
-                    </h3>
-                    <p className="text-xs text-neutral-400 font-sans">
-                      Export your entire portfolio state to a JSON file or import a saved backup.
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin">
+                  {services.map((srv) => (
                     <button
-                      onClick={() => {
-                        const jsonStr = exportDataJson();
-                        const blob = new Blob([jsonStr], { type: 'application/json' });
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = `min_thu_khant_portfolio_${new Date().toISOString().slice(0, 10)}.json`;
-                        a.click();
-                        URL.revokeObjectURL(url);
-                        showToast('Backup JSON downloaded');
-                      }}
-                      className="flex flex-col items-center justify-center p-6 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-white/20 transition-all text-center min-h-[120px]"
+                      key={srv.id}
+                      onClick={() => setActiveServiceId(srv.id)}
+                      className={`px-3 py-2 rounded-xl text-xs font-mono-tech shrink-0 border ${
+                        (currentService?.id === srv.id)
+                          ? 'bg-indigo-950/80 border-indigo-500 text-white font-bold'
+                          : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
+                      }`}
                     >
-                      <Download className="w-6 h-6 text-indigo-400 mb-2" />
-                      <span className="text-xs font-mono-tech font-bold uppercase text-white mb-1">
-                        Download JSON Backup
-                      </span>
-                      <span className="text-[10px] text-neutral-400">
-                        Export all current projects and settings
-                      </span>
+                      <span>{srv.number}. {srv.title}</span>
                     </button>
+                  ))}
+                </div>
 
-                    <label className="flex flex-col items-center justify-center p-6 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-white/20 transition-all text-center min-h-[120px] cursor-pointer">
-                      <Upload className="w-6 h-6 text-cyan-400 mb-2" />
-                      <span className="text-xs font-mono-tech font-bold uppercase text-white mb-1">
-                        Import JSON Backup
+                {currentService && (
+                  <div className="p-5 rounded-2xl bg-[#14141a] border border-white/10 space-y-4">
+                    <div className="flex items-center justify-between pb-2 border-b border-white/10">
+                      <span className="text-xs font-mono-tech text-indigo-400 font-bold">
+                        Service #{currentService.number}
                       </span>
-                      <span className="text-[10px] text-neutral-400">
-                        Select a previously exported file
-                      </span>
-                      <input
-                        type="file"
-                        accept=".json"
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            const reader = new FileReader();
-                            reader.onload = (ev) => {
-                              const content = ev.target?.result as string;
-                              if (importDataJson(content)) {
-                                showToast('Portfolio imported successfully');
-                              } else {
-                                alert('Failed to parse JSON file.');
-                              }
-                            };
-                            reader.readAsText(file);
+                      <button
+                        onClick={() => {
+                          if (confirm(`Delete service "${currentService.title}"?`)) {
+                            deleteService(currentService.id);
+                            showToast('Service deleted');
                           }
                         }}
+                        className="text-rose-400 hover:text-rose-300 p-1"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-mono-tech uppercase text-slate-400 mb-1">
+                        Service Title
+                      </label>
+                      <input
+                        type="text"
+                        value={currentService.title}
+                        onChange={(e) => saveService({ ...currentService, title: e.target.value })}
+                        className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/15 text-white text-sm font-bold focus:border-indigo-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-mono-tech uppercase text-slate-400 mb-1">
+                        Short Description
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={currentService.shortDescription}
+                        onChange={(e) => saveService({ ...currentService, shortDescription: e.target.value })}
+                        className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-sans focus:border-indigo-500 focus:outline-none resize-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-mono-tech uppercase text-slate-400 mb-1">
+                        Key Focus / Specialty
+                      </label>
+                      <input
+                        type="text"
+                        value={currentService.keyFocus}
+                        onChange={(e) => saveService({ ...currentService, keyFocus: e.target.value })}
+                        className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono-tech focus:border-indigo-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ------------------------------------------------------------- */}
+            {/* TAB 4: SKILLS CMS                                              */}
+            {/* ------------------------------------------------------------- */}
+            {activeTab === 'skills' && (
+              <div className="space-y-6">
+                <div className="pb-4 border-b border-white/10">
+                  <h2 className="text-base font-sans font-bold text-white tracking-tight">
+                    Technical & Creative Skills
+                  </h2>
+                  <p className="text-xs text-slate-400">
+                    Add or remove skills with categories.
+                  </p>
+                </div>
+
+                {/* Add new skill inline */}
+                <div className="p-4 rounded-xl bg-white/5 border border-white/10 flex flex-wrap items-center gap-3">
+                  <input
+                    type="text"
+                    placeholder="Skill Name (e.g. Prompt Architecture)..."
+                    value={newSkillName}
+                    onChange={(e) => setNewSkillName(e.target.value)}
+                    className="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/15 text-white text-xs font-mono-tech focus:border-indigo-500 focus:outline-none"
+                  />
+                  <select
+                    value={newSkillCategory}
+                    onChange={(e) => setNewSkillCategory(e.target.value as SkillCategory)}
+                    className="px-3 py-2 rounded-lg bg-slate-900 border border-white/15 text-white text-xs font-mono-tech focus:border-indigo-500 focus:outline-none"
+                  >
+                    <option value="Design">Design</option>
+                    <option value="Development">Development</option>
+                    <option value="AI & Content">AI & Content</option>
+                  </select>
+                  <button
+                    onClick={() => {
+                      if (!newSkillName.trim()) return;
+                      saveSkill({
+                        name: newSkillName.trim(),
+                        category: newSkillCategory,
+                        description: newSkillDesc.trim(),
+                      });
+                      setNewSkillName('');
+                      setNewSkillDesc('');
+                      showToast('Skill added');
+                    }}
+                    className="px-4 py-2 rounded-lg bg-white text-black text-xs font-mono-tech font-bold uppercase hover:bg-neutral-200 transition-colors"
+                  >
+                    Add Skill
+                  </button>
+                </div>
+
+                {/* Skills List */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {skills.map((s) => (
+                    <div
+                      key={s.name}
+                      className="p-3 rounded-xl bg-white/[0.03] border border-white/10 flex items-center justify-between"
+                    >
+                      <div>
+                        <div className="text-xs font-mono-tech font-bold text-white">
+                          {s.name}
+                        </div>
+                        <div className="text-[10px] font-mono-tech text-indigo-400">
+                          {s.category}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          deleteSkill(s.name);
+                          showToast('Skill removed');
+                        }}
+                        className="text-slate-400 hover:text-rose-400 p-1"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ------------------------------------------------------------- */}
+            {/* TAB 5: EXPERIENCE CMS                                          */}
+            {/* ------------------------------------------------------------- */}
+            {activeTab === 'experience' && (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between pb-4 border-b border-white/10">
+                  <div>
+                    <h2 className="text-base font-sans font-bold text-white tracking-tight">
+                      Experience Milestones
+                    </h2>
+                    <p className="text-xs text-slate-400">
+                      Chronological career milestones and achievements.
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleCreateNewExperience}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white text-black text-xs font-mono-tech uppercase font-bold hover:bg-neutral-200 transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>New Milestone</span>
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  {experience.map((exp) => (
+                    <div
+                      key={exp.id}
+                      className="p-4 rounded-xl bg-[#14141a] border border-white/10 space-y-3"
+                    >
+                      <div className="flex items-center justify-between">
+                        <input
+                          type="text"
+                          value={exp.role}
+                          onChange={(e) => saveExperience({ ...exp, role: e.target.value })}
+                          className="px-2 py-1 rounded bg-white/5 border border-white/15 text-white text-xs font-bold font-sans"
+                        />
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={exp.period}
+                            onChange={(e) => saveExperience({ ...exp, period: e.target.value })}
+                            className="px-2 py-1 rounded bg-white/5 border border-white/15 text-indigo-300 text-[10px] font-mono-tech w-28 text-right"
+                          />
+                          <button
+                            onClick={() => {
+                              deleteExperience(exp.id);
+                              showToast('Milestone removed');
+                            }}
+                            className="text-rose-400 hover:text-rose-300 p-1"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <input
+                        type="text"
+                        value={exp.organizationOrFocus}
+                        onChange={(e) => saveExperience({ ...exp, organizationOrFocus: e.target.value })}
+                        className="w-full px-2 py-1 rounded bg-white/5 border border-white/15 text-slate-300 text-xs font-sans"
+                      />
+
+                      <textarea
+                        rows={2}
+                        value={exp.description}
+                        onChange={(e) => saveExperience({ ...exp, description: e.target.value })}
+                        className="w-full px-2 py-1 rounded bg-white/5 border border-white/15 text-slate-300 text-xs font-sans resize-none"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ------------------------------------------------------------- */}
+            {/* TAB 6: SETTINGS CMS                                            */}
+            {/* ------------------------------------------------------------- */}
+            {activeTab === 'settings' && (
+              <div className="p-5 rounded-2xl bg-[#14141a] border border-white/10 space-y-4">
+                <div className="pb-3 border-b border-white/10">
+                  <h2 className="text-base font-sans font-bold text-white tracking-tight">
+                    Section Visibility Controls
+                  </h2>
+                  <p className="text-xs text-slate-400">
+                    Toggle which navigation sections are active on the public site.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  {Object.entries(settings.visibility).map(([key, val]) => (
+                    <label
+                      key={key}
+                      className="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] border border-white/10 cursor-pointer"
+                    >
+                      <span className="text-xs font-mono-tech uppercase text-slate-200">
+                        {key}
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={val}
+                        onChange={(e) =>
+                          updateSettings({
+                            visibility: {
+                              ...settings.visibility,
+                              [key]: e.target.checked,
+                            },
+                          })
+                        }
+                        className="rounded bg-white/10 border-white/20 text-indigo-500 w-4 h-4"
                       />
                     </label>
-
-                    <button
-                      onClick={() => {
-                        if (
-                          confirm(
-                            'Are you sure you want to restore all defaults? This will reset custom edits in localStorage.'
-                          )
-                        ) {
-                          resetAllToDefault();
-                          showToast('Restored initial default state');
-                        }
-                      }}
-                      className="flex flex-col items-center justify-center p-6 rounded-2xl bg-rose-950/20 border border-rose-500/20 hover:border-rose-500/40 transition-all text-center min-h-[120px]"
-                    >
-                      <RotateCcw className="w-6 h-6 text-rose-400 mb-2" />
-                      <span className="text-xs font-mono-tech font-bold uppercase text-rose-300 mb-1">
-                        Reset All To Defaults
-                      </span>
-                      <span className="text-[10px] text-neutral-400">
-                        Restore initial curated case studies
-                      </span>
-                    </button>
-                  </div>
+                  ))}
                 </div>
-              )}
+              </div>
+            )}
 
+            {/* ------------------------------------------------------------- */}
+            {/* TAB 7: BACKUP & RESTORE CMS                                    */}
+            {/* ------------------------------------------------------------- */}
+            {activeTab === 'backup' && (
+              <div className="space-y-6">
+                <div className="p-5 rounded-2xl bg-[#14141a] border border-white/10 space-y-4">
+                  <h3 className="text-xs font-mono-tech uppercase text-indigo-400 font-bold">
+                    Export JSON Snapshot
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Download a full backup of all case studies, video embed links, profile info, and custom assets.
+                  </p>
+                  <button
+                    onClick={() => {
+                      const dataStr = exportDataJson();
+                      const blob = new Blob([dataStr], { type: 'application/json' });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `min-thu-khant-portfolio-backup-${new Date().toISOString().slice(0, 10)}.json`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                      showToast('Backup downloaded');
+                    }}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white text-black text-xs font-mono-tech font-bold uppercase tracking-wider hover:bg-neutral-200 transition-colors"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>Download JSON Backup</span>
+                  </button>
+                </div>
+
+                <div className="p-5 rounded-2xl bg-[#14141a] border border-white/10 space-y-4">
+                  <h3 className="text-xs font-mono-tech uppercase text-indigo-400 font-bold">
+                    Restore from JSON File
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Upload a previously saved JSON snapshot to instantly restore all data.
+                  </p>
+                  <input
+                    type="file"
+                    accept=".json"
+                    onChange={handleFileImport}
+                    className="block w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-mono-tech file:bg-white/10 file:text-white hover:file:bg-white/20"
+                  />
+                </div>
+
+                <div className="p-5 rounded-2xl bg-rose-950/20 border border-rose-500/30 space-y-3">
+                  <h3 className="text-xs font-mono-tech uppercase text-rose-400 font-bold">
+                    Reset All to System Defaults
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Revert all local storage modifications back to the default project and profile specifications.
+                  </p>
+                  <button
+                    onClick={() => {
+                      if (confirm('Are you sure you want to reset all data to system defaults? This cannot be undone.')) {
+                        resetAllToDefault();
+                        showToast('Reset to defaults complete');
+                      }
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-mono-tech font-bold uppercase tracking-wider"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    <span>Reset All Data</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+          </div>
+        </section>
+
+        {/* ================================================================= */}
+        {/* RIGHT PANEL: 50% WIDTH LIVE INTERACTIVE PUBLIC PREVIEW            */}
+        {/* ================================================================= */}
+        <section className="w-full lg:w-1/2 h-full border-t lg:border-t-0 lg:border-l border-white/10 overflow-hidden bg-[#0a0a0d] flex flex-col">
+          
+          {/* Preview Navigation & Viewport Mode Bar */}
+          <div className="h-11 w-full border-b border-white/10 bg-[#121217] px-3 sm:px-4 flex items-center justify-between shrink-0 z-10">
+            
+            {/* Left: Section Navigator */}
+            <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
+              <span className="text-[10px] font-mono-tech uppercase text-slate-500 mr-1 hidden sm:inline-block">
+                VIEWPORT:
+              </span>
+              {(['home', 'projects', 'services', 'skills', 'about', 'experience', 'contact'] as ActiveSection[]).map((sec) => (
+                <button
+                  key={sec}
+                  onClick={() => setPreviewSection(sec)}
+                  className={`px-2.5 py-1 rounded-lg text-[10px] font-mono-tech uppercase tracking-wider transition-colors ${
+                    previewSection === sec
+                      ? 'bg-white text-black font-bold shadow-sm'
+                      : 'text-slate-400 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  {sec}
+                </button>
+              ))}
+            </div>
+
+            {/* Right: Device Viewport Simulation */}
+            <div className="flex items-center gap-1 bg-white/5 p-0.5 rounded-lg border border-white/10 shrink-0">
+              <button
+                onClick={() => setDeviceMode('desktop')}
+                className={`p-1 rounded ${deviceMode === 'desktop' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                title="Desktop View (100% Split)"
+              >
+                <Monitor className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={() => setDeviceMode('tablet')}
+                className={`p-1 rounded ${deviceMode === 'tablet' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                title="Tablet View (768px)"
+              >
+                <Tablet className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={() => setDeviceMode('mobile')}
+                className={`p-1 rounded ${deviceMode === 'mobile' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                title="Mobile View (390px)"
+              >
+                <Smartphone className="w-3.5 h-3.5" />
+              </button>
             </div>
           </div>
-        )}
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+
+          {/* Real-time Component Preview Viewport */}
+          <div className="flex-1 w-full overflow-y-auto overflow-x-hidden bg-[#0c0c0e] relative flex justify-center p-2 sm:p-4">
+            
+            {/* Viewport Frame Container */}
+            <div
+              className={`transition-all duration-300 w-full ${
+                deviceMode === 'mobile'
+                  ? 'max-w-[390px] border border-white/20 rounded-3xl shadow-2xl overflow-hidden min-h-[780px] my-auto bg-[#0c0c0e]'
+                  : deviceMode === 'tablet'
+                  ? 'max-w-[768px] border border-white/15 rounded-3xl shadow-2xl overflow-hidden min-h-[900px] my-auto bg-[#0c0c0e]'
+                  : 'max-w-none'
+              }`}
+            >
+              <div className="relative w-full min-h-full">
+                {previewSection === 'home' && <Center />}
+                {previewSection === 'projects' && <Projects />}
+                {previewSection === 'services' && <ServicesView />}
+                {previewSection === 'skills' && <SkillsView />}
+                {previewSection === 'about' && <AboutView />}
+                {previewSection === 'experience' && <ExperienceView />}
+                {previewSection === 'contact' && <ContactView />}
+              </div>
+            </div>
+
+          </div>
+
+          {/* Bottom Live Status Bar */}
+          <div className="h-7 w-full border-t border-white/10 bg-[#111116] px-4 flex items-center justify-between text-[10px] font-mono-tech text-slate-500 shrink-0">
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+              <span className="text-slate-400 font-semibold">REACTIVITY ACTIVE:</span>
+              <span>Left-pane inputs immediately update this live portfolio preview</span>
+            </span>
+            <span className="hidden sm:inline-block">Press ESC or click View Public Site to exit</span>
+          </div>
+
+        </section>
+
+      </div>
+    </div>
   );
 };
 
