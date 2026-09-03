@@ -18,6 +18,7 @@ import {
 export const ContactView: React.FC = () => {
   const { profile, setActiveSection } = usePortfolio();
   const [copied, setCopied] = useState<boolean>(false);
+  const [copiedPhone, setCopiedPhone] = useState<boolean>(false);
   const [senderName, setSenderName] = useState<string>('');
   const [senderEmail, setSenderEmail] = useState<string>('');
   const [selectedScopes, setSelectedScopes] = useState<string[]>(['Content Strategy']);
@@ -36,6 +37,12 @@ export const ContactView: React.FC = () => {
     navigator.clipboard.writeText(profile.email);
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
+  };
+
+  const handleCopyPhone = () => {
+    navigator.clipboard.writeText(profile.phone || '+95 9 798 886 644');
+    setCopiedPhone(true);
+    setTimeout(() => setCopiedPhone(false), 2500);
   };
 
   const toggleScope = (scope: string) => {
@@ -152,7 +159,7 @@ export const ContactView: React.FC = () => {
             <div className="grid grid-cols-2 gap-2 pt-1">
               <a
                 href={profile.phone?.startsWith('+') ? `tel:${profile.phone.replace(/\s+/g, '')}` : `tel:+${(profile.phone || '+959798886644').replace(/\D/g, '')}`}
-                className="flex items-center justify-center gap-2 p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-mono-tech uppercase text-white transition-all active:scale-95"
+                className="flex items-center justify-center gap-2 p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-mono-tech uppercase text-white transition-all active:scale-95 min-h-[44px]"
               >
                 <PhoneCall className="w-3.5 h-3.5 text-indigo-400" />
                 <span>Call Now</span>
@@ -161,12 +168,29 @@ export const ContactView: React.FC = () => {
                 href={`viber://chat?number=%2B${(profile.viberNumber || profile.phone || '+959798886644').replace(/\D/g, '')}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 p-2.5 rounded-xl bg-purple-950/40 hover:bg-purple-900/50 border border-purple-500/30 text-xs font-mono-tech uppercase text-purple-200 transition-all active:scale-95"
+                className="flex items-center justify-center gap-2 p-2.5 rounded-xl bg-purple-950/40 hover:bg-purple-900/50 border border-purple-500/30 text-xs font-mono-tech uppercase text-purple-200 transition-all active:scale-95 min-h-[44px]"
               >
                 <MessageSquare className="w-3.5 h-3.5 text-purple-400" />
                 <span>Viber Chat</span>
               </a>
             </div>
+
+            <button
+              onClick={handleCopyPhone}
+              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-mono-tech uppercase text-neutral-300 hover:text-white transition-all active:scale-95 min-h-[44px]"
+            >
+              {copiedPhone ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Number Copied!</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5 text-neutral-400" />
+                  <span>Copy Hotline Number</span>
+                </>
+              )}
+            </button>
           </div>
 
           {/* Location & Timezone Coordinates */}

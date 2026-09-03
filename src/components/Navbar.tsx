@@ -64,17 +64,17 @@ export const Navbar: React.FC = () => {
       <header className="fixed top-0 left-0 right-0 z-40 bg-[#0c0c0e]/80 backdrop-blur-md border-b border-white/10 transition-all">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between">
           
-          {/* Top-Left: Personal Profile Picture Avatar inside a small circular crop (w-10 h-10 rounded-full object-cover) */}
+          {/* Top-Left: Personal Profile Picture Avatar inside a small circular crop */}
           <button
             onClick={() => handleNavClick('home')}
-            className="flex items-center gap-3 text-left group focus:outline-none min-h-[48px] min-w-[48px] py-1"
+            className="flex items-center gap-2.5 sm:gap-3 text-left group focus:outline-none min-h-[48px] py-1 max-w-[calc(100%-80px)] sm:max-w-none"
             aria-label="Return to Overview"
           >
-            <div className="relative w-10 h-10 rounded-full overflow-hidden border border-white/20 group-hover:border-indigo-400 transition-colors shrink-0 shadow-md bg-[#16161b]">
+            <div className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-full overflow-hidden border border-white/20 group-hover:border-indigo-400 transition-colors shrink-0 shadow-md bg-[#16161b]">
               <img
                 src={avatarUrl}
                 alt={profile.name}
-                className="w-10 h-10 rounded-full object-cover group-hover:scale-105 transition-transform duration-300"
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                 referrerPolicy="no-referrer"
                 onError={(e) => {
                   e.currentTarget.src = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=1000&q=80';
@@ -83,12 +83,12 @@ export const Navbar: React.FC = () => {
               <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-[#0c0c0e]" />
             </div>
 
-            <div className="flex flex-col">
-              <span className="text-sm sm:text-base font-sans font-bold tracking-tight text-white group-hover:text-indigo-300 transition-colors">
+            <div className="flex flex-col min-w-0">
+              <span className="text-sm sm:text-base font-sans font-bold tracking-tight text-white group-hover:text-indigo-300 transition-colors truncate">
                 {profile.name}
               </span>
-              <span className="text-[10px] font-mono-tech tracking-wider uppercase text-neutral-400">
-                {profile.nickname ? `(${profile.nickname}) · Creative Technologist` : 'Portfolio'}
+              <span className="text-[10px] font-mono-tech tracking-wider uppercase text-neutral-400 truncate">
+                {profile.nickname ? `(${profile.nickname}) · Creative Technologist` : 'Creative Technologist'}
               </span>
             </div>
           </button>
@@ -169,23 +169,24 @@ export const Navbar: React.FC = () => {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-            className="fixed inset-0 z-40 lg:hidden bg-[#0c0c0e]/95 backdrop-blur-xl pt-20 px-6 pb-8 flex flex-col justify-between"
+            className="fixed inset-0 z-40 lg:hidden bg-[#0c0c0e]/95 backdrop-blur-2xl pt-20 px-4 sm:px-6 pb-8 flex flex-col justify-between overflow-y-auto"
           >
-            <div className="space-y-2 pt-4">
-              <div className="text-[10px] font-mono-tech uppercase tracking-widest text-neutral-500 px-3 mb-2">
-                PORTFOLIO DIRECTORY
+            <div className="space-y-1.5 pt-2">
+              <div className="flex items-center justify-between text-[10px] font-mono-tech uppercase tracking-widest text-neutral-500 px-3 mb-2">
+                <span>PORTFOLIO DIRECTORY</span>
+                <span>{profile.location}</span>
               </div>
               
               <button
                 onClick={() => handleNavClick('home')}
-                className={`w-full flex items-center gap-3.5 p-3.5 rounded-2xl text-left min-h-[48px] transition-all ${
+                className={`w-full flex items-center gap-3.5 p-3 rounded-xl text-left min-h-[44px] transition-all ${
                   activeSection === 'home'
-                    ? 'bg-white text-black font-bold'
-                    : 'text-neutral-200 hover:bg-white/5'
+                    ? 'bg-white text-black font-bold shadow-md'
+                    : 'text-neutral-200 hover:bg-white/5 active:bg-white/10'
                 }`}
               >
-                <Home className="w-5 h-5 text-indigo-400" />
-                <span className="text-sm font-mono-tech uppercase tracking-wider">OVERVIEW</span>
+                <Home className={`w-4 h-4 ${activeSection === 'home' ? 'text-black' : 'text-indigo-400'}`} />
+                <span className="text-xs font-mono-tech uppercase tracking-wider">OVERVIEW</span>
               </button>
 
               {navItems.map((item) => {
@@ -195,29 +196,48 @@ export const Navbar: React.FC = () => {
                   <button
                     key={item.id}
                     onClick={() => handleNavClick(item.id)}
-                    className={`w-full flex items-center gap-3.5 p-3.5 rounded-2xl text-left min-h-[48px] transition-all ${
+                    className={`w-full flex items-center gap-3.5 p-3 rounded-xl text-left min-h-[44px] transition-all ${
                       isActive
                         ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold shadow-lg'
-                        : 'text-neutral-200 hover:bg-white/5'
+                        : 'text-neutral-200 hover:bg-white/5 active:bg-white/10'
                     }`}
                   >
-                    <Icon className="w-5 h-5 text-indigo-300" />
-                    <span className="text-sm font-mono-tech uppercase tracking-wider">{item.label}</span>
+                    <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-indigo-300'}`} />
+                    <span className="text-xs font-mono-tech uppercase tracking-wider">{item.label}</span>
                   </button>
                 );
               })}
             </div>
 
-            <div className="pt-6 border-t border-white/10 space-y-3">
+            <div className="pt-5 mt-4 border-t border-white/10 space-y-3">
+              {/* Direct Touch Action Buttons */}
+              <div className="grid grid-cols-2 gap-2">
+                <a
+                  href={`tel:${(profile.phone || '+959798886644').replace(/\s+/g, '')}`}
+                  className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 text-xs font-mono-tech uppercase min-h-[42px] active:scale-95 transition-transform"
+                >
+                  <span className="text-emerald-400 font-bold">●</span>
+                  <span>Call Direct</span>
+                </a>
+                <a
+                  href={`https://viber.click/${(profile.viberNumber || profile.phone || '+959798886644').replace(/\D/g, '')}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 text-purple-200 text-xs font-mono-tech uppercase min-h-[42px] active:scale-95 transition-transform"
+                >
+                  <span>Viber Chat</span>
+                </a>
+              </div>
+
               <motion.button
                 whileTap={{ scale: 0.97 }}
                 onClick={() => handleNavClick('contact')}
-                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-white text-black text-xs font-mono-tech font-bold uppercase tracking-wider min-h-[48px]"
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-white text-black text-xs font-mono-tech font-bold uppercase tracking-wider min-h-[46px] shadow-md shadow-white/10"
               >
                 <Sparkles className="w-4 h-4 text-indigo-600" />
                 <span>START A CONVERSATION</span>
               </motion.button>
-              <p className="text-center text-xs font-mono-tech text-neutral-500">
+              <p className="text-center text-[11px] font-mono-tech text-neutral-500">
                 {profile.email} · {profile.location}
               </p>
             </div>
@@ -226,56 +246,61 @@ export const Navbar: React.FC = () => {
       </AnimatePresence>
 
       {/* Floating Bottom Quick Rail (< 768px for immediate ergonomic touch access) */}
-      <nav className="md:hidden fixed bottom-3 left-3 right-3 z-30 pointer-events-auto">
-        <div className="flex items-center justify-around bg-[#121216]/90 backdrop-blur-xl border border-white/15 rounded-2xl py-1 px-1.5 shadow-2xl shadow-black/80">
+      <nav 
+        className={`md:hidden fixed bottom-2.5 left-3 right-3 z-30 pointer-events-auto transition-all duration-200 ${
+          mobileMenuOpen ? 'opacity-0 pointer-events-none translate-y-4' : 'opacity-100 translate-y-0'
+        }`}
+        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+      >
+        <div className="flex items-center justify-around bg-[#121216]/95 backdrop-blur-xl border border-white/15 rounded-2xl py-1 px-1 shadow-2xl shadow-black/90">
           <button
             onClick={() => handleNavClick('home')}
-            className={`flex flex-col items-center gap-0.5 py-1.5 px-2.5 rounded-xl transition-all min-h-[48px] min-w-[48px] justify-center ${
-              activeSection === 'home' ? 'text-indigo-400 bg-white/10' : 'text-neutral-400'
+            className={`flex flex-col items-center gap-0.5 py-1.5 px-2 rounded-xl transition-all min-h-[44px] min-w-[44px] justify-center ${
+              activeSection === 'home' ? 'text-indigo-400 bg-white/10 font-bold' : 'text-neutral-400 hover:text-white'
             }`}
           >
             <Home className="w-4 h-4" />
-            <span className="text-[9px] font-mono-tech uppercase">Home</span>
+            <span className="text-[9px] font-mono-tech uppercase tracking-tight">Home</span>
           </button>
 
           <button
             onClick={() => handleNavClick('projects')}
-            className={`flex flex-col items-center gap-0.5 py-1.5 px-2.5 rounded-xl transition-all min-h-[48px] min-w-[48px] justify-center ${
-              activeSection === 'projects' ? 'text-blue-400 bg-white/10' : 'text-neutral-400'
+            className={`flex flex-col items-center gap-0.5 py-1.5 px-2 rounded-xl transition-all min-h-[44px] min-w-[44px] justify-center ${
+              activeSection === 'projects' ? 'text-blue-400 bg-white/10 font-bold' : 'text-neutral-400 hover:text-white'
             }`}
           >
             <FolderKanban className="w-4 h-4" />
-            <span className="text-[9px] font-mono-tech uppercase">Projects</span>
+            <span className="text-[9px] font-mono-tech uppercase tracking-tight">Projects</span>
           </button>
 
           <button
             onClick={() => handleNavClick('skills')}
-            className={`flex flex-col items-center gap-0.5 py-1.5 px-2.5 rounded-xl transition-all min-h-[48px] min-w-[48px] justify-center ${
-              activeSection === 'skills' ? 'text-blue-400 bg-white/10' : 'text-neutral-400'
+            className={`flex flex-col items-center gap-0.5 py-1.5 px-2 rounded-xl transition-all min-h-[44px] min-w-[44px] justify-center ${
+              activeSection === 'skills' ? 'text-cyan-400 bg-white/10 font-bold' : 'text-neutral-400 hover:text-white'
             }`}
           >
             <Cpu className="w-4 h-4" />
-            <span className="text-[9px] font-mono-tech uppercase">Skills</span>
+            <span className="text-[9px] font-mono-tech uppercase tracking-tight">Skills</span>
           </button>
 
           <button
             onClick={() => handleNavClick('services')}
-            className={`flex flex-col items-center gap-0.5 py-1.5 px-2.5 rounded-xl transition-all min-h-[48px] min-w-[48px] justify-center ${
-              activeSection === 'services' ? 'text-blue-400 bg-white/10' : 'text-neutral-400'
+            className={`flex flex-col items-center gap-0.5 py-1.5 px-2 rounded-xl transition-all min-h-[44px] min-w-[44px] justify-center ${
+              activeSection === 'services' ? 'text-purple-400 bg-white/10 font-bold' : 'text-neutral-400 hover:text-white'
             }`}
           >
             <Layers className="w-4 h-4" />
-            <span className="text-[9px] font-mono-tech uppercase">Services</span>
+            <span className="text-[9px] font-mono-tech uppercase tracking-tight">Services</span>
           </button>
 
           <button
             onClick={() => handleNavClick('contact')}
-            className={`flex flex-col items-center gap-0.5 py-1.5 px-2.5 rounded-xl transition-all min-h-[48px] min-w-[48px] justify-center ${
-              activeSection === 'contact' ? 'text-blue-400 bg-white/10' : 'text-neutral-400'
+            className={`flex flex-col items-center gap-0.5 py-1.5 px-2 rounded-xl transition-all min-h-[44px] min-w-[44px] justify-center ${
+              activeSection === 'contact' ? 'text-emerald-400 bg-white/10 font-bold' : 'text-neutral-400 hover:text-white'
             }`}
           >
             <Send className="w-4 h-4" />
-            <span className="text-[9px] font-mono-tech uppercase">Contact</span>
+            <span className="text-[9px] font-mono-tech uppercase tracking-tight">Contact</span>
           </button>
         </div>
       </nav>

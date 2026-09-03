@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePortfolio } from '../context/PortfolioContext';
 import { Project } from '../types';
@@ -10,6 +10,7 @@ import {
   X,
   Play,
   ChevronRight,
+  ChevronLeft,
   Video,
   Sparkles,
   Layers,
@@ -125,11 +126,27 @@ export const Projects: React.FC = () => {
   const activeProject = publishedProjects.find((p) => p.id === selectedProjectId);
   const videoInfo = activeProject ? getVideoEmbedInfo(activeProject.videoEmbedUrl) : null;
 
+  const activeIndex = activeProject ? publishedProjects.findIndex((p) => p.id === activeProject.id) : -1;
+  const prevProject = activeIndex > 0 ? publishedProjects[activeIndex - 1] : null;
+  const nextProject = activeIndex >= 0 && activeIndex < publishedProjects.length - 1 ? publishedProjects[activeIndex + 1] : null;
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setActiveImageZoom(null);
+      }
+    };
+    if (activeImageZoom) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeImageZoom]);
+
   return (
     <div className="min-h-screen pt-24 sm:pt-28 pb-32 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto relative z-10">
       
       {/* Top Header & Breadcrumbs */}
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-8 pb-6 border-b border-white/10">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 sm:mb-8 pb-5 sm:pb-6 border-b border-white/10">
         <div>
           <motion.button
             whileHover={{ x: -2 }}
@@ -141,25 +158,25 @@ export const Projects: React.FC = () => {
                 setActiveSection('home');
               }
             }}
-            className="inline-flex items-center gap-2 text-xs font-mono-tech uppercase tracking-wider text-slate-400 hover:text-white transition-colors mb-2"
+            className="inline-flex items-center gap-2 text-xs font-mono-tech uppercase tracking-wider text-slate-400 hover:text-white transition-colors mb-2 min-h-[36px]"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             <span>{selectedProjectId ? 'Back to All Projects' : 'Back to Overview'}</span>
           </motion.button>
           
-          <h1 className="text-3xl sm:text-4xl font-bold font-sans tracking-tight text-white">
+          <h1 className="text-2xl sm:text-4xl font-bold font-sans tracking-tight text-white">
             {selectedProjectId && activeProject ? activeProject.title : 'Featured Case Studies'}
           </h1>
         </div>
 
         {/* Categories Bar (Only in List View) */}
         {!selectedProjectId && (
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full scrollbar-none">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 max-w-full scrollbar-none">
             {categories.map((cat) => (
               <button
                 key={cat}
                 onClick={() => setActiveCategoryFilter(cat)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-mono-tech uppercase tracking-wider whitespace-nowrap transition-all ${
+                className={`px-3.5 py-2 rounded-xl text-xs font-mono-tech uppercase tracking-wider whitespace-nowrap transition-all min-h-[40px] flex items-center shrink-0 ${
                   activeCategoryFilter === cat
                     ? 'bg-white text-black font-bold shadow-md'
                     : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 border border-white/10'
@@ -378,15 +395,46 @@ export const Projects: React.FC = () => {
 
           </div>
 
-          {/* Bottom Back Button */}
-          <div className="pt-6 border-t border-white/10 flex justify-between items-center">
+          {/* Bottom Case Study Pagination / Back Buttons */}
+          <div className="pt-6 border-t border-white/10 flex flex-col sm:flex-row gap-3 justify-between items-stretch sm:items-center">
             <button
               onClick={() => setSelectedProjectId(null)}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-mono-tech uppercase font-bold text-slate-300 hover:text-white transition-colors min-h-[44px]"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-mono-tech uppercase font-bold text-slate-300 hover:text-white transition-colors min-h-[46px]"
             >
               <ArrowLeft className="w-4 h-4" />
               <span>Back to All Projects</span>
             </button>
+
+            <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
+              {prevProject ? (
+                <button
+                  onClick={() => {
+                    setSelectedProjectId(prevProject.id);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-mono-tech uppercase font-semibold text-slate-300 hover:text-white transition-colors min-h-[46px]"
+                  title={`Previous: ${prevProject.title}`}
+                >
+                  <ChevronLeft className="w-4 h-4 text-indigo-400" />
+                  <span className="hidden sm:inline truncate max-w-[140px]">{prevProject.title}</span>
+                  <span className="sm:hidden">Prev Case</span>
+                </button>
+              ) : <div className="hidden sm:block" />}
+              {nextProject && (
+                <button
+                  onClick={() => {
+                    setSelectedProjectId(nextProject.id);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-indigo-950/40 hover:bg-indigo-900/50 border border-indigo-500/30 text-xs font-mono-tech uppercase font-semibold text-indigo-200 hover:text-white transition-colors min-h-[46px]"
+                  title={`Next: ${nextProject.title}`}
+                >
+                  <span className="hidden sm:inline truncate max-w-[140px]">{nextProject.title}</span>
+                  <span className="sm:hidden">Next Case</span>
+                  <ChevronRight className="w-4 h-4 text-indigo-400" />
+                </button>
+              )}
+            </div>
           </div>
 
         </motion.div>

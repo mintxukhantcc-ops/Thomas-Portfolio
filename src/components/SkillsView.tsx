@@ -108,12 +108,12 @@ export const SkillsView: React.FC = () => {
           </div>
 
           {/* Filter Tabs */}
-          <div className="flex flex-wrap items-center gap-1.5 bg-[#141418] p-1.5 rounded-xl border border-white/5">
+          <div className="flex items-center gap-1.5 bg-[#141418] p-1.5 rounded-xl border border-white/5 overflow-x-auto max-w-full scrollbar-none">
             {categories.map((cat) => (
               <button
                 key={cat}
                 onClick={() => setSelectedTab(cat)}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-mono-tech tracking-wider uppercase transition-all ${
+                className={`px-3.5 py-2 rounded-lg text-xs font-mono-tech tracking-wider uppercase transition-all whitespace-nowrap min-h-[38px] flex items-center shrink-0 ${
                   selectedTab === cat
                     ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold shadow'
                     : 'text-neutral-400 hover:text-white'

@@ -131,7 +131,7 @@ export const Footer: React.FC = () => {
                 animate={{ opacity: 1, scale: 1, y: -10 }}
                 exit={{ opacity: 0, scale: 0.95, y: 10 }}
                 transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-80 sm:w-84 rounded-2xl bg-slate-950/95 backdrop-blur-xl border border-white/15 p-4 shadow-2xl z-50 text-left"
+                className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-[calc(100vw-2rem)] max-w-xs sm:max-w-sm rounded-2xl bg-slate-950/95 backdrop-blur-xl border border-white/15 p-4 shadow-2xl z-50 text-left"
               >
                 {/* Popover Header */}
                 <div className="flex items-center justify-between pb-3 mb-3 border-b border-white/10">

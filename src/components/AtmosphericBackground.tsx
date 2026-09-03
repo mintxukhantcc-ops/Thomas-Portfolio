@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Cloud, Moon, Sun, CloudRain, Sparkles, Wind, RefreshCw } from 'lucide-react';
+import { Cloud, Moon, Sun, CloudRain, Sparkles, Wind } from 'lucide-react';
 
 export type WeatherCondition = 'clear_night' | 'sunny' | 'rain' | 'twilight' | 'aurora';
 
@@ -8,135 +8,250 @@ interface WeatherData {
   temperature: number;
   conditionLabel: string;
   location: string;
+  timezone: string;
+  apparentTemp?: number;
+  humidity?: number;
+  windSpeed?: number;
   isRealTime: boolean;
 }
 
 export const AtmosphericBackground: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  // Weather state
+  // Weather state (Default to Yangon coordinates & Asia/Yangon timezone)
   const [weather, setWeather] = useState<WeatherData>({
     condition: 'clear_night',
-    temperature: 28,
-    conditionLabel: 'Clear Night Sky',
+    temperature: 25,
+    conditionLabel: 'Night Sky',
     location: 'Yangon, MM',
+    timezone: 'Asia/Yangon',
     isRealTime: true,
   });
 
   // Time state for live clock
   const [currentTimeStr, setCurrentTimeStr] = useState<string>('');
-  const [isSelectorOpen, setIsSelectorOpen] = useState<boolean>(false);
 
-  // 1. Clock timer
+  // 1. Clock timer synced to the target location's real timezone
   useEffect(() => {
     const updateTime = () => {
       const now = new Date();
-      setCurrentTimeStr(
-        now.toLocaleTimeString([], {
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-          hour12: true,
-        })
-      );
+      try {
+        const targetTz = weather.timezone || 'Asia/Yangon';
+        setCurrentTimeStr(
+          new Intl.DateTimeFormat([], {
+            timeZone: targetTz,
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true,
+          }).format(now)
+        );
+      } catch {
+        setCurrentTimeStr(
+          now.toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true,
+          })
+        );
+      }
     };
     updateTime();
     const interval = setInterval(updateTime, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [weather.timezone]);
 
-  // 2. Fetch or detect real-time weather (Yangon 16.8661° N, 96.1951° E)
+  // 2. High-precision real-time meteorological fetch
   useEffect(() => {
     let isMounted = true;
 
-    const resolveDefaultByTime = (now: Date): WeatherData => {
-      const hours = now.getHours();
-      if (hours >= 6 && hours < 9) {
+    // Helper: Map WMO meteorological code & daylight cycle accurately
+    const interpretWeather = (
+      wCode: number,
+      isDay: boolean,
+      precipitation: number,
+      cloudCover: number
+    ): { condition: WeatherCondition; label: string } => {
+      // Active precipitation / showers / thunderstorms
+      if (
+        precipitation > 0.2 ||
+        [51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 95, 96, 99].includes(wCode)
+      ) {
+        if ([95, 96, 99].includes(wCode)) return { condition: 'rain', label: 'Thunderstorm' };
+        if ([65, 82].includes(wCode)) return { condition: 'rain', label: 'Heavy Rain' };
+        if ([51, 53, 55].includes(wCode)) return { condition: 'rain', label: 'Light Drizzle' };
+        if ([61, 80].includes(wCode)) return { condition: 'rain', label: 'Passing Showers' };
+        return { condition: 'rain', label: 'Rain & Showers' };
+      }
+
+      // Snow / wintry flurries
+      if ([71, 73, 75, 77, 85, 86].includes(wCode)) {
+        return { condition: 'aurora', label: 'Snow Flurries' };
+      }
+
+      // Fog / mist
+      if ([45, 48].includes(wCode)) {
         return {
-          condition: 'aurora',
-          temperature: 26,
-          conditionLabel: 'Dawn Breeze',
-          location: 'Yangon, MM',
-          isRealTime: false,
-        };
-      } else if (hours >= 9 && hours < 17) {
-        return {
-          condition: 'sunny',
-          temperature: 33,
-          conditionLabel: 'Sunny Aura',
-          location: 'Yangon, MM',
-          isRealTime: false,
-        };
-      } else if (hours >= 17 && hours < 20) {
-        return {
-          condition: 'twilight',
-          temperature: 29,
-          conditionLabel: 'Golden Twilight',
-          location: 'Yangon, MM',
-          isRealTime: false,
-        };
-      } else {
-        return {
-          condition: 'clear_night',
-          temperature: 27,
-          conditionLabel: 'Clear Night Sky',
-          location: 'Yangon, MM',
-          isRealTime: false,
+          condition: isDay ? 'twilight' : 'clear_night',
+          label: 'Misty Fog',
         };
       }
+
+      // Daylight conditions (isDay === true)
+      if (isDay) {
+        if (wCode === 0) return { condition: 'sunny', label: 'Clear Sky' };
+        if (wCode === 1) return { condition: 'sunny', label: 'Mainly Sunny' };
+        if (wCode === 2) {
+          return {
+            condition: cloudCover > 65 ? 'twilight' : 'sunny',
+            label: 'Partly Cloudy',
+          };
+        }
+        if (wCode === 3) return { condition: 'twilight', label: 'Overcast Sky' };
+        return { condition: 'sunny', label: 'Daylight' };
+      }
+
+      // Nighttime conditions (isDay === false)
+      if (wCode === 0) return { condition: 'clear_night', label: 'Clear Night' };
+      if (wCode === 1) return { condition: 'clear_night', label: 'Mainly Clear' };
+      if (wCode === 2) return { condition: 'clear_night', label: 'Partly Cloudy' };
+      if (wCode === 3) return { condition: 'clear_night', label: 'Overcast Night' };
+      return { condition: 'clear_night', label: 'Night Sky' };
     };
 
-    const fetchRealTimeWeather = async () => {
+    const fetchRealTimeTelemetry = async () => {
+      let lat = 16.8661;
+      let lon = 96.1951;
+      let locationLabel = 'Yangon, MM';
+      let timezone = 'Asia/Yangon';
+
+      // Tier 1: Check if geolocation permission was already granted silently
+      let geoResolved = false;
+      if (typeof navigator !== 'undefined' && 'permissions' in navigator) {
+        try {
+          const perm = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
+          if (perm.state === 'granted') {
+            await new Promise<void>((resolve) => {
+              navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                  lat = pos.coords.latitude;
+                  lon = pos.coords.longitude;
+                  geoResolved = true;
+                  resolve();
+                },
+                () => resolve(),
+                { timeout: 3000 }
+              );
+            });
+          }
+        } catch {
+          // Silent catch
+        }
+      }
+
+      // Tier 2: IP-based lookup if GPS was not silently available
+      if (!geoResolved) {
+        try {
+          // Use reliable geojs.io service (no rate limiting, full CORS)
+          const geoRes = await fetch('https://get.geojs.io/v1/ip/geo.json', {
+            headers: { Accept: 'application/json' },
+          });
+          if (geoRes.ok) {
+            const geoData = await geoRes.json();
+            if (geoData.latitude && geoData.longitude) {
+              lat = parseFloat(geoData.latitude);
+              lon = parseFloat(geoData.longitude);
+              if (geoData.city) {
+                locationLabel = `${geoData.city}, ${geoData.country_code || ''}`.trim();
+              }
+              if (geoData.timezone) {
+                timezone = geoData.timezone;
+              }
+              geoResolved = true;
+            }
+          }
+        } catch {
+          // Try backup ipwho.is
+          try {
+            const backupRes = await fetch('https://ipwho.is/');
+            if (backupRes.ok) {
+              const bData = await backupRes.json();
+              if (bData.success && bData.latitude && bData.longitude) {
+                lat = bData.latitude;
+                lon = bData.longitude;
+                locationLabel = `${bData.city}, ${bData.country_code || ''}`.trim();
+                if (bData.timezone?.id) {
+                  timezone = bData.timezone.id;
+                }
+                geoResolved = true;
+              }
+            }
+          } catch {
+            // Keep default Yangon coordinates
+          }
+        }
+      }
+
+      // Tier 3: Query real-time WMO weather observation from Open-Meteo
       try {
-        const res = await fetch(
-          'https://api.open-meteo.com/v1/forecast?latitude=16.8661&longitude=96.1951&current=temperature_2m,weather_code,is_day&timezone=auto'
-        );
-        if (!res.ok) throw new Error('Weather API offline');
+        const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,cloud_cover,wind_speed_10m&timezone=auto`;
+        const res = await fetch(weatherUrl);
+        if (!res.ok) throw new Error(`Open-Meteo HTTP ${res.status}`);
         const data = await res.json();
         if (!isMounted) return;
 
         const current = data.current;
         const temp = Math.round(current.temperature_2m);
-        const wCode = current.weather_code;
+        const wCode = current.weather_code ?? 0;
         const isDay = current.is_day === 1;
+        const precip = current.precipitation ?? 0;
+        const cloud = current.cloud_cover ?? 0;
+        const appTemp = Math.round(current.apparent_temperature ?? temp);
+        const humidity = Math.round(current.relative_humidity_2m ?? 0);
+        const wind = Math.round(current.wind_speed_10m ?? 0);
 
-        let detectedCondition: WeatherCondition = 'clear_night';
-        let label = 'Clear Night Sky';
-
-        // WMO Weather interpretation
-        if ([51, 53, 55, 61, 63, 65, 80, 81, 82, 95, 96].includes(wCode)) {
-          detectedCondition = 'rain';
-          label = 'Monsoon Rain';
-        } else if (isDay) {
-          if ([0, 1].includes(wCode)) {
-            detectedCondition = 'sunny';
-            label = 'Sunny Gold Aura';
-          } else {
-            detectedCondition = 'twilight';
-            label = 'Partly Cloudy';
-          }
-        } else {
-          detectedCondition = 'clear_night';
-          label = 'Clear Night Sky';
+        if (data.timezone) {
+          timezone = data.timezone;
         }
+
+        const { condition, label } = interpretWeather(wCode, isDay, precip, cloud);
 
         setWeather({
-          condition: detectedCondition,
+          condition,
           temperature: temp,
           conditionLabel: label,
-          location: 'Yangon, MM',
+          location: locationLabel,
+          timezone,
+          apparentTemp: appTemp,
+          humidity,
+          windSpeed: wind,
           isRealTime: true,
         });
-      } catch {
-        if (isMounted) {
-          setWeather(resolveDefaultByTime(new Date()));
-        }
+      } catch (err) {
+        console.warn('Real-time weather query fallback:', err);
       }
     };
 
-    fetchRealTimeWeather();
+    fetchRealTimeTelemetry();
+
+    // Re-verify periodically every 10 minutes
+    const interval = setInterval(fetchRealTimeTelemetry, 10 * 60 * 1000);
+
+    // Re-verify when tab visibility changes or device regains internet
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        fetchRealTimeTelemetry();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('online', fetchRealTimeTelemetry);
+
     return () => {
       isMounted = false;
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('online', fetchRealTimeTelemetry);
     };
   }, []);
 
@@ -330,119 +445,73 @@ export const AtmosphericBackground: React.FC = () => {
   const currentTheme = getAtmosphericGradients(weather.condition);
   const WeatherIcon = currentTheme.icon;
 
-  const weatherPresets: { id: WeatherCondition; label: string; temp: number }[] = [
-    { id: 'clear_night', label: 'Clear Night', temp: 27 },
-    { id: 'sunny', label: 'Sunny Aura', temp: 33 },
-    { id: 'rain', label: 'Monsoon Rain', temp: 26 },
-    { id: 'twilight', label: 'Twilight Dusk', temp: 29 },
-    { id: 'aurora', label: 'Aurora Dawn', temp: 25 },
-  ];
-
   return (
-    <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden select-none">
-      {/* 1. Base Dark Canvas */}
-      <div className="absolute inset-0 bg-[#0c0c0e]" />
+    <>
+      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden select-none">
+        {/* 1. Base Dark Canvas */}
+        <div className="absolute inset-0 bg-[#0c0c0e]" />
 
-      {/* 2. Dynamic Deep Atmospheric Aurora / Radial Weather Blobs */}
-      <div
-        className={`absolute -top-32 -left-32 w-[600px] sm:w-[900px] h-[600px] sm:h-[900px] rounded-full bg-gradient-to-br ${currentTheme.glow1} blur-[140px] opacity-80 transition-all duration-1000`}
-      />
-      <div
-        className={`absolute top-1/3 -right-32 w-[500px] sm:w-[800px] h-[500px] sm:h-[800px] rounded-full bg-gradient-to-bl ${currentTheme.glow2} blur-[160px] opacity-75 transition-all duration-1000`}
-      />
-      <div
-        className={`absolute -bottom-40 left-1/4 w-[600px] sm:w-[950px] h-[600px] sm:h-[950px] rounded-full bg-gradient-to-tr ${currentTheme.glow3} blur-[180px] opacity-65 transition-all duration-1000`}
-      />
+        {/* 2. Dynamic Deep Atmospheric Aurora / Radial Weather Blobs */}
+        <div
+          className={`absolute -top-32 -left-32 w-[600px] sm:w-[900px] h-[600px] sm:h-[900px] rounded-full bg-gradient-to-br ${currentTheme.glow1} blur-[140px] opacity-80 transition-all duration-1000`}
+        />
+        <div
+          className={`absolute top-1/3 -right-32 w-[500px] sm:w-[800px] h-[500px] sm:h-[800px] rounded-full bg-gradient-to-bl ${currentTheme.glow2} blur-[160px] opacity-75 transition-all duration-1000`}
+        />
+        <div
+          className={`absolute -bottom-40 left-1/4 w-[600px] sm:w-[950px] h-[600px] sm:h-[950px] rounded-full bg-gradient-to-tr ${currentTheme.glow3} blur-[180px] opacity-65 transition-all duration-1000`}
+        />
 
-      {/* 3. Subtle Technical Grid Overlay */}
-      <div
-        className="absolute inset-0 opacity-[0.025]"
-        style={{
-          backgroundImage: `linear-gradient(to right, #ffffff 1px, transparent 1px), linear-gradient(to bottom, #ffffff 1px, transparent 1px)`,
-          backgroundSize: '48px 48px',
-        }}
-      />
+        {/* 3. Subtle Technical Grid Overlay */}
+        <div
+          className="absolute inset-0 opacity-[0.025]"
+          style={{
+            backgroundImage: `linear-gradient(to right, #ffffff 1px, transparent 1px), linear-gradient(to bottom, #ffffff 1px, transparent 1px)`,
+            backgroundSize: '48px 48px',
+          }}
+        />
 
-      {/* 4. Canvas for Fluid Floating Atmospheric Particles & Weather Simulation */}
-      <canvas
-        ref={canvasRef}
-        className="absolute inset-0 w-full h-full pointer-events-none opacity-85"
-      />
-
-      {/* 5. Dynamic Interactive Real-Time Weather Widget (Bottom Left) */}
-      <div className="hidden md:flex flex-col items-start absolute bottom-5 left-6 z-30 pointer-events-auto">
-        <div className="flex items-center gap-3 px-3.5 py-2 rounded-2xl bg-[#121217]/85 backdrop-blur-xl border border-white/15 shadow-[0_8px_32px_rgba(0,0,0,0.5)] transition-all hover:border-white/25">
-          {/* Weather Icon with dynamic condition pulse */}
-          <div className="flex items-center justify-center w-8 h-8 rounded-xl bg-white/5 border border-white/10 shrink-0">
-            <WeatherIcon className={`w-4 h-4 ${currentTheme.iconColor} animate-pulse`} />
-          </div>
-
-          {/* Temperature & Condition details */}
-          <div className="flex flex-col min-w-0 pr-1">
-            <div className="flex items-center gap-1.5 leading-none">
-              <span className="text-sm font-mono-tech font-bold text-white">
-                {weather.temperature}°C
-              </span>
-              <span className="text-[10px] font-mono-tech text-slate-400 uppercase tracking-wider">
-                {weather.location}
-              </span>
-            </div>
-            <div className="flex items-center gap-1.5 mt-1 text-[10px] font-mono-tech text-slate-300">
-              <span className="text-slate-200 font-medium truncate max-w-[110px]">
-                {weather.conditionLabel}
-              </span>
-              {currentTimeStr && (
-                <>
-                  <span className="text-slate-600">·</span>
-                  <span className="text-indigo-300 font-semibold">{currentTimeStr}</span>
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* Interactive Switcher Button */}
-          <button
-            onClick={() => setIsSelectorOpen(!isSelectorOpen)}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors shrink-0"
-            title="Switch Weather Atmosphere"
-            aria-label="Switch Weather Atmosphere"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isSelectorOpen ? 'rotate-180' : ''} transition-transform duration-300`} />
-          </button>
-        </div>
-
-        {/* Quick Atmosphere Selector Drawer */}
-        {isSelectorOpen && (
-          <div className="mt-2 p-2 rounded-xl bg-[#14141a]/95 backdrop-blur-2xl border border-white/15 shadow-2xl flex flex-wrap gap-1 max-w-xs animate-in fade-in slide-in-from-bottom-2 duration-200">
-            <div className="w-full text-[9px] font-mono-tech uppercase text-slate-400 px-1.5 py-0.5">
-              Interactive Atmospheric Moods
-            </div>
-            {weatherPresets.map((preset) => (
-              <button
-                key={preset.id}
-                onClick={() => {
-                  setWeather({
-                    condition: preset.id,
-                    temperature: preset.temp,
-                    conditionLabel: preset.label,
-                    location: 'Yangon, MM',
-                    isRealTime: false,
-                  });
-                  setIsSelectorOpen(false);
-                }}
-                className={`px-2.5 py-1 rounded-lg text-[10px] font-mono-tech uppercase tracking-wider transition-all ${
-                  weather.condition === preset.id
-                    ? 'bg-indigo-600 text-white font-bold shadow-sm'
-                    : 'bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white'
-                }`}
-              >
-                {preset.label} ({preset.temp}°C)
-              </button>
-            ))}
-          </div>
-        )}
+        {/* 4. Canvas for Fluid Floating Atmospheric Particles & Weather Simulation */}
+        <canvas
+          ref={canvasRef}
+          className="absolute inset-0 w-full h-full pointer-events-none opacity-85"
+        />
       </div>
-    </div>
+
+      {/* 5. Autonomous Real-Time Live Atmosphere Indicator (Non-intrusive, Fixed Bottom-Right) */}
+      <aside aria-label="Real-Time Atmosphere Telemetry" className="hidden md:flex items-center fixed bottom-6 right-6 z-30 pointer-events-none select-none">
+        <div
+          className="flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-[#121217]/85 backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)] pointer-events-auto cursor-default hover:border-white/25 transition-all"
+          title={`Autonomous Weather Telemetry: ${weather.location} · ${weather.temperature}°C (${weather.conditionLabel})${weather.apparentTemp ? ` · Feels like ${weather.apparentTemp}°C` : ''}${weather.humidity ? ` · Humidity ${weather.humidity}%` : ''}${weather.windSpeed ? ` · Wind ${weather.windSpeed} km/h` : ''}`}
+        >
+          {/* Dynamic Weather Condition Icon */}
+          <div className="flex items-center justify-center w-6 h-6 rounded-full bg-white/5 border border-white/10 shrink-0">
+            <WeatherIcon className={`w-3.5 h-3.5 ${currentTheme.iconColor} animate-pulse`} />
+          </div>
+
+          {/* Autonomous Status: Temp, Location & Sky Condition */}
+          <div className="flex items-center gap-2 font-mono-tech text-xs">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" title="Autonomous Live Weather Sync" />
+            <span className="font-bold text-white tracking-wide">
+              {weather.temperature}°C
+            </span>
+            <span className="text-slate-400 text-[11px] uppercase tracking-wider">
+              {weather.location}
+            </span>
+            <span className="text-slate-600">·</span>
+            <span className="text-slate-300 text-[11px] font-medium">
+              {weather.conditionLabel}
+            </span>
+            {currentTimeStr && (
+              <>
+                <span className="text-slate-600">·</span>
+                <span className="text-indigo-300/90 text-[11px] font-semibold">{currentTimeStr}</span>
+              </>
+            )}
+          </div>
+        </div>
+      </aside>
+    </>
   );
 };
 

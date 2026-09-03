@@ -56,11 +56,40 @@ export const ServicesView: React.FC = () => {
         </div>
       </div>
 
+      {/* Mobile Quick Service Selector (< lg) */}
+      <div className="lg:hidden mb-6">
+        <div className="text-[10px] font-mono-tech uppercase tracking-widest text-indigo-400 mb-2 px-1">
+          SELECT DISCIPLINE SPECIFICATION
+        </div>
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-none">
+          {publishedServices.map((srv) => {
+            const Icon = serviceIcons[srv.number] || Layers;
+            const isSelected = selectedService.id === srv.id;
+            return (
+              <button
+                key={srv.id}
+                onClick={() => setActiveServiceId(srv.id)}
+                className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl border text-left shrink-0 transition-all min-h-[44px] ${
+                  isSelected
+                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 border-indigo-400 text-white shadow-lg shadow-indigo-950/50 font-bold'
+                    : 'bg-[#141419] border-white/10 text-neutral-300 hover:bg-white/5 active:bg-white/10'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                <span className="text-xs font-mono-tech uppercase tracking-wider whitespace-nowrap">
+                  #{srv.number} · {srv.title.split(' ')[0]}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Interactive Service Selector & Detailed Visual Panel */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         
-        {/* Left Column: Quick Interactive Service List */}
-        <div className="lg:col-span-5 space-y-3">
+        {/* Left Column: Quick Interactive Service List (Hidden on mobile to save scroll depth, shown on desktop) */}
+        <div className="hidden lg:block lg:col-span-5 space-y-3">
           {publishedServices.map((srv) => {
             const Icon = serviceIcons[srv.number] || Layers;
             const isSelected = selectedService.id === srv.id;
@@ -114,7 +143,7 @@ export const ServicesView: React.FC = () => {
 
         {/* Right Column: Deep Visual Presentation of Selected Service */}
         <div className="lg:col-span-7">
-          <div className="sticky top-24 rounded-3xl bg-[#141419] border border-white/10 p-6 sm:p-8 shadow-2xl space-y-6">
+          <div className="lg:sticky lg:top-24 rounded-3xl bg-[#141419] border border-white/10 p-5 sm:p-8 shadow-2xl space-y-6">
             
             {/* Service Header */}
             <div className="flex flex-wrap items-center justify-between gap-3 pb-6 border-b border-white/10">
@@ -162,7 +191,7 @@ export const ServicesView: React.FC = () => {
             </div>
 
             {/* Call to Action Bar */}
-            <div className="pt-6 border-t border-white/10 flex flex-wrap items-center justify-between gap-4">
+            <div className="pt-6 border-t border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div>
                 <span className="text-xs font-mono-tech text-neutral-400 block">
                   Ready to activate this service?
@@ -173,7 +202,7 @@ export const ServicesView: React.FC = () => {
               </div>
               <button
                 onClick={() => setActiveSection('contact')}
-                className="flex items-center gap-2 px-6 py-3 rounded-full bg-white text-black text-xs font-mono-tech tracking-wider uppercase font-bold hover:bg-neutral-200 transition-all active:scale-95 shadow-lg shadow-white/5"
+                className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3.5 rounded-full bg-white text-black text-xs font-mono-tech tracking-wider uppercase font-bold hover:bg-neutral-200 transition-all active:scale-95 shadow-lg shadow-white/5 min-h-[48px]"
               >
                 <span>Request Project Proposal</span>
                 <ArrowRight className="w-4 h-4" />
