@@ -138,4 +138,14 @@ export interface PortfolioSettings {
   visibility: SectionVisibility;
 }
 
+export interface Inquiry {
+  id: string;
+  name: string;
+  email: string;
+  scopes: string[];
+  message: string;
+  createdAt: string;
+  status: 'unread' | 'read' | 'archived';
+}
+
 export type ActiveSection = 'home' | 'about' | 'skills' | 'projects' | 'services' | 'prompts' | 'experience' | 'contact';

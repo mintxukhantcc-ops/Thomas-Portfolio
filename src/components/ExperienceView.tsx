@@ -60,9 +60,9 @@ export const ExperienceView: React.FC = () => {
             <div className="p-6 sm:p-8 rounded-3xl bg-[#141419] border border-white/10 group-hover:border-white/20 transition-all shadow-xl space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-2 pb-4 border-b border-white/5">
                 <div>
-                  <h3 className="text-lg sm:text-xl font-display font-bold text-white tracking-tight">
+                  <h2 className="text-lg sm:text-xl font-display font-bold text-white tracking-tight">
                     {item.role}
-                  </h3>
+                  </h2>
                   <div className="flex items-center gap-2 text-xs font-mono-tech text-indigo-400 mt-1">
                     <Briefcase className="w-3.5 h-3.5" />
                     <span>{item.organizationOrFocus}</span>

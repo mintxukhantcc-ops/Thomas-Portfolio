@@ -1,0 +1,9 @@
+# Robots.txt for Min Thu Khant (Thomas) Portfolio
+# https://thomas-portfolio-duz.pages.dev/
+
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /api/
+
+Sitemap: https://thomas-portfolio-duz.pages.dev/sitemap.xml

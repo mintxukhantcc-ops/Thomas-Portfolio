@@ -237,7 +237,7 @@ export const HeroCardStack: React.FC = () => {
         }}
       >
         {/* Dynamic Cyberpunk / Studio Ambient Aura centered right behind the deck */}
-        <div className="absolute -inset-4 sm:-inset-6 rounded-3xl bg-gradient-to-tr from-cyan-500/25 via-indigo-600/25 to-blue-600/25 blur-3xl opacity-75 pointer-events-none animate-pulse" />
+        <div className="absolute -inset-4 sm:-inset-6 rounded-3xl bg-gradient-to-tr from-cyan-500/20 via-indigo-600/25 to-blue-600/20 blur-3xl opacity-75 pointer-events-none" />
         <div className="absolute -inset-2 sm:-inset-4 rounded-3xl bg-gradient-to-br from-purple-600/20 via-transparent to-blue-500/20 blur-2xl opacity-60 pointer-events-none" />
 
         {/* Cards mapping */}

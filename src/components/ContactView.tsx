@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 
 export const ContactView: React.FC = () => {
-  const { profile, setActiveSection } = usePortfolio();
+  const { profile, setActiveSection, submitInquiry } = usePortfolio();
   const [copied, setCopied] = useState<boolean>(false);
   const [copiedPhone, setCopiedPhone] = useState<boolean>(false);
   const [senderName, setSenderName] = useState<string>('');
@@ -24,6 +24,7 @@ export const ContactView: React.FC = () => {
   const [selectedScopes, setSelectedScopes] = useState<string[]>(['Content Strategy']);
   const [message, setMessage] = useState<string>('');
   const [isSentSuccess, setIsSentSuccess] = useState<boolean>(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   const scopeOptions = [
     'Content Strategy & Planning',
@@ -51,14 +52,30 @@ export const ContactView: React.FC = () => {
     );
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const subject = encodeURIComponent(`Project Inquiry: ${selectedScopes.join(', ')}`);
-    const body = encodeURIComponent(
-      `Hello Min Thu Khant (Thomas),\n\nMy name is ${senderName} (${senderEmail}).\n\nProject Scope: ${selectedScopes.join(', ')}\n\nMessage Details:\n${message}\n\nLooking forward to hearing from you.`
-    );
-    window.open(`mailto:${profile.email}?subject=${subject}&body=${body}`);
-    setIsSentSuccess(true);
+    if (!senderName.trim() || !senderEmail.trim() || !message.trim()) return;
+
+    setIsSubmitting(true);
+    try {
+      // 1. Submit to server API
+      await submitInquiry({
+        name: senderName,
+        email: senderEmail,
+        scopes: selectedScopes,
+        message,
+      });
+
+      // 2. Also trigger mailto fallback
+      const subject = encodeURIComponent(`Project Inquiry: ${selectedScopes.join(', ')}`);
+      const body = encodeURIComponent(
+        `Hello Min Thu Khant (Thomas),\n\nMy name is ${senderName} (${senderEmail}).\n\nProject Scope: ${selectedScopes.join(', ')}\n\nMessage Details:\n${message}\n\nLooking forward to hearing from you.`
+      );
+      window.open(`mailto:${profile.email}?subject=${subject}&body=${body}`);
+      setIsSentSuccess(true);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -88,13 +105,16 @@ export const ContactView: React.FC = () => {
         
         {/* Left Column: Direct Contact Details & Coordinates */}
         <div className="lg:col-span-5 space-y-6">
+          <h2 className="text-xs font-mono-tech uppercase tracking-widest text-indigo-400">
+            Direct Coordinates & Channels
+          </h2>
           
           {/* Email Direct Action Box */}
           <div className="p-6 rounded-3xl bg-[#141419] border border-white/10 shadow-xl space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-mono-tech uppercase tracking-widest text-neutral-400">
+              <h3 className="text-[10px] font-mono-tech uppercase tracking-widest text-neutral-400">
                 DIRECT INBOX
-              </span>
+              </h3>
               <Mail className="w-4 h-4 text-indigo-400" />
             </div>
 
@@ -138,11 +158,11 @@ export const ContactView: React.FC = () => {
           {/* Direct Phone & Viber Hotline Card */}
           <div className="p-6 rounded-3xl bg-[#141419] border border-white/10 shadow-xl space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-mono-tech uppercase tracking-widest text-neutral-400">
+              <h3 className="text-[10px] font-mono-tech uppercase tracking-widest text-neutral-400">
                 DIRECT CALL & VIBER HOTLINE
-              </span>
+              </h3>
               <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-950/60 border border-emerald-500/30 text-emerald-400 text-[10px] font-mono-tech">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                 <span>ONLINE</span>
               </div>
             </div>
@@ -196,23 +216,23 @@ export const ContactView: React.FC = () => {
           {/* Location & Timezone Coordinates */}
           <div className="p-6 rounded-3xl bg-[#141419] border border-white/10 shadow-xl space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-mono-tech uppercase tracking-widest text-neutral-400">
+              <h3 className="text-[10px] font-mono-tech uppercase tracking-widest text-neutral-400">
                 BASE LOCATION & TIMEZONE
-              </span>
+              </h3>
               <MapPin className="w-4 h-4 text-blue-400" />
             </div>
 
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-base font-display font-bold text-white">
+                <p className="text-base font-display font-bold text-white">
                   {profile.location}
-                </h3>
+                </p>
                 <p className="text-xs text-neutral-400 font-mono-tech mt-0.5">
                   UTC +06:30 (MMT)
                 </p>
               </div>
               <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950/40 border border-emerald-500/30 text-emerald-400 text-xs font-mono-tech">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                 <span>Remote Ready</span>
               </div>
             </div>
@@ -220,9 +240,9 @@ export const ContactView: React.FC = () => {
 
           {/* Professional Channels */}
           <div className="p-6 rounded-3xl bg-[#141419] border border-white/10 shadow-xl space-y-3">
-            <span className="text-[10px] font-mono-tech uppercase tracking-widest text-neutral-400 block mb-1">
+            <h3 className="text-[10px] font-mono-tech uppercase tracking-widest text-neutral-400 block mb-1">
               NETWORK & CHANNELS
-            </span>
+            </h3>
             {profile.socials.map((soc, idx) => (
               <a
                 key={idx}
@@ -330,16 +350,17 @@ export const ContactView: React.FC = () => {
 
             <button
               type="submit"
-              className="w-full flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-white text-black text-xs font-mono-tech uppercase tracking-wider font-bold hover:bg-neutral-200 transition-all active:scale-98 shadow-xl shadow-white/5"
+              disabled={isSubmitting}
+              className="w-full flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-white text-black text-xs font-mono-tech uppercase tracking-wider font-bold hover:bg-neutral-200 transition-all active:scale-98 shadow-xl shadow-white/5 disabled:opacity-50 min-h-[46px]"
             >
-              <span>SEND A MESSAGE ↗</span>
+              <span>{isSubmitting ? 'PROCESSING...' : 'SEND INQUIRY'}</span>
               <Send className="w-4 h-4 text-black" />
             </button>
 
             {isSentSuccess && (
               <div className="p-4 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 text-xs font-mono-tech flex items-center gap-2">
                 <Check className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>Message prepped! Dispatched to email client for final delivery to Mintxukhantcc@gmail.com</span>
+                <span>Inquiry saved to server & dispatched to email client for Min Thu Khant (Thomas).</span>
               </div>
             )}
           </form>

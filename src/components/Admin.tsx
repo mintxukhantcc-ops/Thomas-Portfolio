@@ -27,7 +27,12 @@ import {
   Sparkles,
   Link,
   Eye,
-  CheckCircle2
+  CheckCircle2,
+  Mail,
+  RefreshCw,
+  Server,
+  MessageSquare,
+  ExternalLink
 } from 'lucide-react';
 import { getVideoEmbedInfo } from './Projects';
 
@@ -63,6 +68,12 @@ export const Admin: React.FC = () => {
     resetAllToDefault,
     exportDataJson,
     importDataJson,
+    inquiries,
+    fetchInquiries,
+    deleteInquiry,
+    updateInquiryStatus,
+    syncWithServer,
+    isServerSynced,
   } = usePortfolio();
 
   const [passwordInput, setPasswordInput] = useState('');
@@ -71,8 +82,10 @@ export const Admin: React.FC = () => {
   });
   const [authError, setAuthError] = useState('');
   const [activeTab, setActiveTab] = useState<
-    'projects' | 'services' | 'skills' | 'experience' | 'profile' | 'settings' | 'backup'
+    'projects' | 'services' | 'skills' | 'experience' | 'profile' | 'settings' | 'backup' | 'inquiries'
   >('projects');
+  const [isSyncingServer, setIsSyncingServer] = useState(false);
+  const [isAiEnhancing, setIsAiEnhancing] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
 
   // Active preview section & device mode on right panel
@@ -102,6 +115,8 @@ export const Admin: React.FC = () => {
     else if (tab === 'experience') setPreviewSection('experience');
     else if (tab === 'profile') setPreviewSection('home');
     else if (tab === 'settings') setPreviewSection('home');
+    else if (tab === 'inquiries') setPreviewSection('contact');
+    else if (tab === 'backup') setPreviewSection('home');
   };
 
   const showToast = (msg: string) => {
@@ -481,6 +496,21 @@ export const Admin: React.FC = () => {
               <Database className="w-3.5 h-3.5" />
               <span>Backup</span>
             </button>
+
+            <button
+              onClick={() => handleTabChange('inquiries')}
+              className={`relative flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-mono-tech uppercase tracking-wider transition-all whitespace-nowrap min-h-[36px] ${
+                activeTab === 'inquiries'
+                  ? 'bg-indigo-600 text-white font-bold shadow'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <Mail className="w-3.5 h-3.5" />
+              <span>Inquiries ({inquiries.length})</span>
+              {inquiries.some((i) => i.status === 'unread') && (
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              )}
+            </button>
           </div>
 
           {/* Left Panel Scrollable Content Body */}
@@ -614,9 +644,47 @@ export const Admin: React.FC = () => {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-mono-tech uppercase text-slate-400 mb-1">
-                        Summary
-                      </label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-mono-tech uppercase text-slate-400">
+                          Summary
+                        </label>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (!currentProject.summary) return;
+                            setIsAiEnhancing(true);
+                            try {
+                              const res = await fetch('/api/ai/enhance', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  prompt: currentProject.summary,
+                                  type: 'project_description',
+                                  context: { title: currentProject.title, role: currentProject.role },
+                                }),
+                              });
+                              const data = await res.json();
+                              if (data.enhancedText) {
+                                updateProjectField(currentProject.id, 'summary', data.enhancedText);
+                                showToast('AI enhanced summary applied');
+                              } else if (data.fallback) {
+                                updateProjectField(currentProject.id, 'summary', data.fallback);
+                                showToast('Polished summary applied');
+                              }
+                            } catch {
+                              showToast('Could not reach AI service');
+                            } finally {
+                              setIsAiEnhancing(false);
+                            }
+                          }}
+                          disabled={isAiEnhancing || !currentProject.summary}
+                          className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 text-[10px] font-mono-tech transition-colors disabled:opacity-50"
+                          title="Enhance summary with Gemini AI"
+                        >
+                          <Sparkles className={`w-3 h-3 ${isAiEnhancing ? 'animate-spin' : ''}`} />
+                          <span>{isAiEnhancing ? 'Polishing...' : 'AI Polish'}</span>
+                        </button>
+                      </div>
                       <textarea
                         rows={3}
                         value={currentProject.summary}
@@ -1264,6 +1332,202 @@ export const Admin: React.FC = () => {
                     <span>Reset All Data</span>
                   </button>
                 </div>
+              </div>
+            )}
+
+            {/* ------------------------------------------------------------- */}
+            {/* TAB 8: CLIENT INQUIRIES & BACKEND DISPATCH                    */}
+            {/* ------------------------------------------------------------- */}
+            {activeTab === 'inquiries' && (
+              <div className="space-y-6">
+                {/* Panel Header */}
+                <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-white/10">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-base font-bold font-mono-tech uppercase text-white tracking-wider">
+                        Client Inquiries & CRM
+                      </h2>
+                      <span className="px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 text-[10px] font-mono-tech">
+                        {inquiries.length} Total
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Direct submissions received through the public Contact portal and persisted to server.
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={async () => {
+                      setIsSyncingServer(true);
+                      await syncWithServer();
+                      await fetchInquiries();
+                      setIsSyncingServer(false);
+                      showToast('Backend inquiries & state synchronized');
+                    }}
+                    disabled={isSyncingServer}
+                    className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-xs font-mono-tech text-white uppercase tracking-wider transition-all active:scale-95 disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 text-indigo-400 ${isSyncingServer ? 'animate-spin' : ''}`} />
+                    <span>{isSyncingServer ? 'Syncing...' : 'Sync with Server'}</span>
+                  </button>
+                </div>
+
+                {/* Backend Server Status Card */}
+                <div className="p-4 rounded-2xl bg-[#14141c] border border-white/10 flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center">
+                      <Server className="w-4 h-4 text-indigo-400" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-mono-tech text-white font-semibold">
+                          Backend REST API Pipeline
+                        </span>
+                        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-950/60 border border-emerald-500/30 text-emerald-400 text-[10px] font-mono-tech">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                          <span>Connected</span>
+                        </div>
+                      </div>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        Inquiries are saved to <code className="text-indigo-300">/api/contact</code> and synced to server storage.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <span className="text-[10px] font-mono-tech text-slate-500 block">
+                      UNREAD INBOX
+                    </span>
+                    <span className="text-sm font-bold font-mono-tech text-emerald-400">
+                      {inquiries.filter((i) => i.status === 'unread').length} Pending
+                    </span>
+                  </div>
+                </div>
+
+                {/* Inquiries Stream */}
+                {inquiries.length === 0 ? (
+                  <div className="p-12 text-center rounded-2xl bg-[#121217] border border-dashed border-white/10 space-y-3">
+                    <Mail className="w-8 h-8 text-slate-600 mx-auto" />
+                    <h3 className="text-sm font-mono-tech uppercase text-slate-300">
+                      No Inquiries Yet
+                    </h3>
+                    <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                      When prospective clients submit the collaboration form on the Contact view, their messages will appear here in real-time.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {inquiries.map((inq) => (
+                      <div
+                        key={inq.id}
+                        className={`p-5 rounded-2xl border transition-all ${
+                          inq.status === 'unread'
+                            ? 'bg-[#151520] border-indigo-500/40 shadow-lg shadow-indigo-950/20'
+                            : 'bg-[#111116] border-white/10 opacity-85'
+                        }`}
+                      >
+                        {/* Header: Sender & Meta */}
+                        <div className="flex flex-wrap items-start justify-between gap-2 pb-3 border-b border-white/5">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h3 className="text-sm font-display font-bold text-white">
+                                {inq.name}
+                              </h3>
+                              {inq.status === 'unread' ? (
+                                <span className="px-2 py-0.5 rounded-full bg-emerald-950/60 border border-emerald-500/40 text-emerald-400 text-[10px] font-mono-tech font-bold uppercase">
+                                  NEW
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded-full bg-white/5 text-slate-400 text-[10px] font-mono-tech uppercase">
+                                  READ
+                                </span>
+                              )}
+                            </div>
+                            <a
+                              href={`mailto:${inq.email}`}
+                              className="text-xs font-mono-tech text-indigo-400 hover:text-indigo-300 transition-colors mt-0.5 block"
+                            >
+                              {inq.email}
+                            </a>
+                          </div>
+
+                          <div className="text-right">
+                            <span className="text-[10px] font-mono-tech text-slate-500">
+                              {new Date(inq.createdAt).toLocaleString(undefined, {
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Project Scopes Tags */}
+                        {inq.scopes && inq.scopes.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 py-3 border-b border-white/5">
+                            {inq.scopes.map((scope, sIdx) => (
+                              <span
+                                key={sIdx}
+                                className="px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[10px] font-mono-tech text-slate-300"
+                              >
+                                {scope}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Message Content */}
+                        <div className="py-3">
+                          <p className="text-xs sm:text-sm text-slate-200 font-sans leading-relaxed whitespace-pre-wrap">
+                            {inq.message}
+                          </p>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-white/5">
+                          <div className="flex items-center gap-2">
+                            <a
+                              href={`mailto:${inq.email}?subject=${encodeURIComponent(
+                                `Re: Collaboration Inquiry - Min Thu Khant (Thomas)`
+                              )}&body=${encodeURIComponent(
+                                `Hi ${inq.name},\n\nThank you for reaching out regarding ${inq.scopes?.join(', ') || 'your project'}.\n\n`
+                              )}`}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-mono-tech uppercase font-bold transition-all active:scale-95"
+                            >
+                              <MessageSquare className="w-3.5 h-3.5" />
+                              <span>Reply via Email</span>
+                            </a>
+
+                            <button
+                              onClick={() => {
+                                const nextStatus = inq.status === 'unread' ? 'read' : 'unread';
+                                updateInquiryStatus(inq.id, nextStatus);
+                                showToast(`Marked inquiry as ${nextStatus}`);
+                              }}
+                              className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white text-xs font-mono-tech uppercase transition-colors"
+                            >
+                              {inq.status === 'unread' ? 'Mark as Read' : 'Mark as Unread'}
+                            </button>
+                          </div>
+
+                          <button
+                            onClick={async () => {
+                              if (confirm(`Delete inquiry from ${inq.name}?`)) {
+                                await deleteInquiry(inq.id);
+                                showToast('Inquiry deleted');
+                              }
+                            }}
+                            className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                            title="Delete Inquiry"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 

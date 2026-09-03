@@ -199,9 +199,9 @@ export const AboutView: React.FC = () => {
         {/* Ready to connect banner */}
         <div className="pt-6 border-t border-white/5 flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h4 className="text-base font-display font-bold text-white">
+            <p className="text-base font-display font-bold text-white">
               Ready to bring strategic logic and creative spark to your project?
-            </h4>
+            </p>
             <p className="text-xs text-neutral-400 font-sans mt-0.5">
               Available for bespoke contracts and long-term retainer engagements.
             </p>

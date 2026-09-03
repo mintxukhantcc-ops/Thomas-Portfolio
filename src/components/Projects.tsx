@@ -364,9 +364,9 @@ export const Projects: React.FC = () => {
             <div className="lg:col-span-7 p-6 rounded-2xl bg-slate-900/50 border border-white/10 space-y-4">
               <div className="flex items-center gap-2 pb-2 border-b border-white/10">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                <h3 className="text-base font-bold font-sans text-white tracking-tight">
+                <h2 className="text-base font-bold font-sans text-white tracking-tight">
                   Strategic Deliverables & Specifications
-                </h3>
+                </h2>
               </div>
               <ul className="space-y-2.5">
                 {activeProject.keyDeliverables.map((d, i) => (
@@ -383,9 +383,9 @@ export const Projects: React.FC = () => {
               <div className="lg:col-span-5 p-6 rounded-2xl bg-gradient-to-br from-indigo-950/30 to-blue-950/30 border border-indigo-500/30 space-y-3">
                 <div className="flex items-center gap-2 pb-2 border-b border-indigo-500/20">
                   <Award className="w-4 h-4 text-indigo-400" />
-                  <h3 className="text-base font-bold font-sans text-white tracking-tight">
+                  <h2 className="text-base font-bold font-sans text-white tracking-tight">
                     Impact & Outcomes
-                  </h3>
+                  </h2>
                 </div>
                 <p className="text-sm font-sans text-indigo-200 leading-relaxed">
                   {activeProject.outcome}

@@ -384,13 +384,36 @@ export const AtmosphericBackground: React.FC = () => {
         }
       }
 
-      animationFrameId = requestAnimationFrame(render);
+      if (!isPaused) {
+        animationFrameId = requestAnimationFrame(render);
+      }
     };
 
-    render();
+    let isPaused = false;
+    const handleVisibilityChange = () => {
+      isPaused = document.hidden;
+      if (!isPaused) {
+        animationFrameId = requestAnimationFrame(render);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!prefersReducedMotion) {
+      const initTimer = setTimeout(() => {
+        animationFrameId = requestAnimationFrame(render);
+      }, 200);
+      return () => {
+        clearTimeout(initTimer);
+        window.removeEventListener('resize', handleResize);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+        cancelAnimationFrame(animationFrameId);
+      };
+    }
 
     return () => {
       window.removeEventListener('resize', handleResize);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       cancelAnimationFrame(animationFrameId);
     };
   }, [weather.condition]);

@@ -8,6 +8,7 @@ import {
   PortfolioSettings,
   ActiveSection,
   PromptItem,
+  Inquiry,
 } from '../types';
 import {
   initialProfile,
@@ -88,6 +89,15 @@ interface PortfolioContextType {
   exportData?: () => string;
   importDataJson: (jsonStr: string) => boolean;
   importData?: (jsonStr: string) => boolean;
+
+  // Backend Integration & Inquiries
+  inquiries: Inquiry[];
+  fetchInquiries: () => Promise<void>;
+  deleteInquiry: (id: string) => Promise<boolean>;
+  updateInquiryStatus: (id: string, status: 'unread' | 'read' | 'archived') => Promise<boolean>;
+  submitInquiry: (data: { name: string; email: string; scopes: string[]; message: string }) => Promise<{ success: boolean; error?: string }>;
+  syncWithServer: () => Promise<boolean>;
+  isServerSynced: boolean;
 }
 
 const STORAGE_KEYS = {
@@ -199,8 +209,10 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [activeSection, setActiveSection] = useState<ActiveSection>('home');
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [isAdminOpen, setIsAdminOpen] = useState<boolean>(false);
+  const [inquiries, setInquiries] = useState<Inquiry[]>([]);
+  const [isServerSynced, setIsServerSynced] = useState<boolean>(false);
 
-  // Synchronous background sync effects
+  // Synchronous background localStorage sync effects
   useEffect(() => {
     persistStorage(STORAGE_KEYS.PROFILE, profile);
   }, [profile]);
@@ -228,6 +240,143 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   useEffect(() => {
     persistStorage(STORAGE_KEYS.SETTINGS, settings);
   }, [settings]);
+
+  // Synchronize with backend server (/api/portfolio)
+  const syncWithServer = async (): Promise<boolean> => {
+    try {
+      const payload = {
+        profile,
+        projects,
+        services,
+        skills,
+        prompts,
+        experience,
+        settings,
+      };
+      const res = await fetch('/api/portfolio', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        setIsServerSynced(true);
+        return true;
+      }
+    } catch (err) {
+      console.warn('[Server Sync] Offline or server not responding:', err);
+    }
+    return false;
+  };
+
+  // Debounced auto-sync to server on changes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      syncWithServer();
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [profile, projects, services, skills, prompts, experience, settings]);
+
+  // Initial load from backend if available
+  useEffect(() => {
+    const loadServerData = async () => {
+      try {
+        const res = await fetch('/api/portfolio');
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.data) {
+            const d = json.data;
+            // Only adopt server data if localStorage was empty or default
+            const hasLocalCustomization = Boolean(localStorage.getItem(STORAGE_KEYS.PROJECTS));
+            if (!hasLocalCustomization) {
+              if (d.profile) setProfile(d.profile);
+              if (d.projects) setProjects(d.projects);
+              if (d.services) setServices(d.services);
+              if (d.skills) setSkills(d.skills);
+              if (d.prompts) setPrompts(d.prompts);
+              if (d.experience) setExperience(d.experience);
+              if (d.settings) setSettings(d.settings);
+            }
+            setIsServerSynced(true);
+          }
+        }
+      } catch (err) {
+        // Silent fallback to localStorage
+      }
+    };
+    loadServerData();
+  }, []);
+
+  // Fetch inquiries from backend
+  const fetchInquiries = async () => {
+    try {
+      const res = await fetch('/api/contact');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.inquiries)) {
+          setInquiries(data.inquiries);
+        }
+      }
+    } catch (err) {
+      console.warn('[Inquiries Fetch Error]:', err);
+    }
+  };
+
+  const deleteInquiry = async (id: string): Promise<boolean> => {
+    try {
+      const res = await fetch(`/api/contact/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setInquiries((prev) => prev.filter((inq) => inq.id !== id));
+        return true;
+      }
+    } catch (err) {
+      console.error('[Delete Inquiry Error]:', err);
+    }
+    return false;
+  };
+
+  const updateInquiryStatus = async (id: string, status: 'unread' | 'read' | 'archived'): Promise<boolean> => {
+    try {
+      const res = await fetch(`/api/contact/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      if (res.ok) {
+        setInquiries((prev) =>
+          prev.map((inq) => (inq.id === id ? { ...inq, status } : inq))
+        );
+        return true;
+      }
+    } catch (err) {
+      console.error('[Update Inquiry Error]:', err);
+    }
+    return false;
+  };
+
+  const submitInquiry = async (data: {
+    name: string;
+    email: string;
+    scopes: string[];
+    message: string;
+  }): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        if (json.inquiry) {
+          setInquiries((prev) => [json.inquiry, ...prev]);
+        }
+        return { success: true };
+      }
+      return { success: false, error: json.error || 'Submission failed' };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Network error' };
+    }
+  };
 
   // Handle URL hashtag navigation with deep-linking support for projects
   useEffect(() => {
@@ -576,6 +725,13 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         exportData: exportDataJson,
         importDataJson,
         importData: importDataJson,
+        inquiries,
+        fetchInquiries,
+        deleteInquiry,
+        updateInquiryStatus,
+        submitInquiry,
+        syncWithServer,
+        isServerSynced,
       }}
     >
       {children}
