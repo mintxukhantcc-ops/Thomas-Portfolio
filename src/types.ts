@@ -86,6 +86,24 @@ export interface SocialLink {
   label: string;
 }
 
+export interface NarrativeAct {
+  actNumber: string;
+  title: string;
+  period: string;
+  summary: string;
+  fullNarrative: string;
+  milestones: string[];
+  tags: string[];
+  keyEnvironments?: string[];
+}
+
+export interface FutureGoalItem {
+  area: string;
+  title: string;
+  description: string;
+  keyInitiatives: string[];
+}
+
 export interface ProfileData {
   name: string;
   nickname: string;
@@ -109,6 +127,10 @@ export interface ProfileData {
   aboutBody: string;
   philosophyHeadline: string;
   philosophySub: string;
+  birthDate?: string;
+  birthPlace?: string;
+  narrativeActs?: NarrativeAct[];
+  futureGoals?: FutureGoalItem[];
 }
 
 export interface AudioTrack {

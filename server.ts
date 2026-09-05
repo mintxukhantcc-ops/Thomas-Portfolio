@@ -210,8 +210,8 @@ app.get('/api/portfolio', (req, res) => {
   }
 });
 
-// Portfolio Data Sync: Save from Admin Dashboard
-app.post('/api/portfolio', (req, res) => {
+// Portfolio Data Sync: Save from Admin Dashboard (POST, PUT, PATCH)
+const handleSavePortfolio = (req: express.Request, res: express.Response) => {
   try {
     const portfolioPayload = req.body;
     savePortfolioData(portfolioPayload);
@@ -220,6 +220,18 @@ app.post('/api/portfolio', (req, res) => {
   } catch (err: any) {
     return res.status(500).json({ error: 'Failed to save portfolio data.' });
   }
+};
+
+app.post('/api/portfolio', handleSavePortfolio);
+app.put('/api/portfolio', handleSavePortfolio);
+app.patch('/api/portfolio', handleSavePortfolio);
+
+// Catch any unhandled methods on /api/portfolio
+app.all('/api/portfolio', (req, res) => {
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+  return res.json({ success: true, message: `Handled ${req.method} on /api/portfolio.` });
 });
 
 // AI Feature Enhancement (Gemini Server-Side)

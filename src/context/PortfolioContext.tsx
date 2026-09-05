@@ -101,13 +101,13 @@ interface PortfolioContextType {
 }
 
 const STORAGE_KEYS = {
-  PROFILE: 'mtk_portfolio_profile_v3',
-  PROJECTS: 'mtk_portfolio_projects_v3',
-  SERVICES: 'mtk_portfolio_services_v3',
-  SKILLS: 'mtk_portfolio_skills_v3',
-  PROMPTS: 'mtk_portfolio_prompts_v3',
-  EXPERIENCE: 'mtk_portfolio_experience_v3',
-  SETTINGS: 'mtk_portfolio_settings_v3',
+  PROFILE: 'mtk_portfolio_profile_v6',
+  PROJECTS: 'mtk_portfolio_projects_v6',
+  SERVICES: 'mtk_portfolio_services_v6',
+  SKILLS: 'mtk_portfolio_skills_v6',
+  PROMPTS: 'mtk_portfolio_prompts_v6',
+  EXPERIENCE: 'mtk_portfolio_experience_v6',
+  SETTINGS: 'mtk_portfolio_settings_v6',
 };
 
 // Safe synchronous localStorage writer
