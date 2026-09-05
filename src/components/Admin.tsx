@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePortfolio, getDirectDriveUrl } from '../context/PortfolioContext';
-import { Project, Service, SkillItem, ExperienceItem, ActiveSection, SkillCategory } from '../types';
+import { Project, Service, SkillItem, ExperienceItem, ActiveSection, SkillCategory, HeroCardItem, AboutImageItem } from '../types';
 import { 
   Lock, 
   Plus, 
@@ -32,7 +32,11 @@ import {
   RefreshCw,
   Server,
   MessageSquare,
-  ExternalLink
+  ExternalLink,
+  Image as ImageIcon,
+  Camera,
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react';
 import { getVideoEmbedInfo } from './Projects';
 
@@ -82,7 +86,7 @@ export const Admin: React.FC = () => {
   });
   const [authError, setAuthError] = useState('');
   const [activeTab, setActiveTab] = useState<
-    'projects' | 'services' | 'skills' | 'experience' | 'profile' | 'settings' | 'backup' | 'inquiries'
+    'projects' | 'images' | 'services' | 'skills' | 'experience' | 'profile' | 'settings' | 'backup' | 'inquiries'
   >('projects');
   const [isSyncingServer, setIsSyncingServer] = useState(false);
   const [isAiEnhancing, setIsAiEnhancing] = useState(false);
@@ -91,6 +95,28 @@ export const Admin: React.FC = () => {
   // Active preview section & device mode on right panel
   const [previewSection, setPreviewSection] = useState<ActiveSection>('projects');
   const [deviceMode, setDeviceMode] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
+
+  // Images CMS Sub-tab & form states
+  const [imageSubTab, setImageSubTab] = useState<'home' | 'about'>('home');
+  const [isAddingAboutImage, setIsAddingAboutImage] = useState(false);
+  const [editingAboutImageId, setEditingAboutImageId] = useState<string | null>(null);
+  const [aboutImageForm, setAboutImageForm] = useState<{
+    id: string;
+    title: string;
+    caption: string;
+    url: string;
+    category: string;
+    tag: string;
+    year: string;
+  }>({
+    id: '',
+    title: '',
+    caption: '',
+    url: '',
+    category: 'On-Set & Direction',
+    tag: '',
+    year: new Date().getFullYear().toString(),
+  });
 
   // Currently editing project ID (or new)
   const [activeProjectId, setActiveProjectId] = useState<string | null>(() => {
@@ -110,6 +136,7 @@ export const Admin: React.FC = () => {
   const handleTabChange = (tab: typeof activeTab) => {
     setActiveTab(tab);
     if (tab === 'projects') setPreviewSection('projects');
+    else if (tab === 'images') setPreviewSection(imageSubTab === 'about' ? 'about' : 'home');
     else if (tab === 'services') setPreviewSection('services');
     else if (tab === 'skills') setPreviewSection('skills');
     else if (tab === 'experience') setPreviewSection('experience');
@@ -229,6 +256,109 @@ export const Admin: React.FC = () => {
     saveExperience(newE);
     setActiveExperienceId(newE.id);
     showToast('New Experience Milestone Created');
+  };
+
+  // Image CMS Helpers
+  const handleSaveAboutImage = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!aboutImageForm.title.trim() || !aboutImageForm.url.trim()) {
+      alert('Please provide at least an image title and a valid image URL.');
+      return;
+    }
+
+    const currentImages = profile.aboutImages || [];
+    const directUrl = getDirectDriveUrl(aboutImageForm.url);
+
+    if (editingAboutImageId) {
+      // Update existing
+      const updated = currentImages.map((img) =>
+        img.id === editingAboutImageId
+          ? {
+              ...img,
+              title: aboutImageForm.title.trim(),
+              category: aboutImageForm.category || 'On-Set & Direction',
+              url: directUrl,
+              year: aboutImageForm.year.trim() || '2025',
+              tag: aboutImageForm.tag.trim(),
+              caption: aboutImageForm.caption.trim(),
+            }
+          : img
+      );
+      updateProfile({ aboutImages: updated });
+      showToast('About image updated successfully');
+    } else {
+      // Create new
+      const newImg: AboutImageItem = {
+        id: 'about-img-' + Date.now(),
+        title: aboutImageForm.title.trim(),
+        category: aboutImageForm.category || 'On-Set & Direction',
+        url: directUrl,
+        year: aboutImageForm.year.trim() || '2025',
+        tag: aboutImageForm.tag.trim(),
+        caption: aboutImageForm.caption.trim(),
+        featured: false,
+      };
+      updateProfile({ aboutImages: [newImg, ...currentImages] });
+      showToast('New image added to About page');
+    }
+
+    // Reset form
+    setIsAddingAboutImage(false);
+    setEditingAboutImageId(null);
+    setAboutImageForm({
+      id: '',
+      title: '',
+      caption: '',
+      url: '',
+      category: 'On-Set & Direction',
+      tag: '',
+      year: new Date().getFullYear().toString(),
+    });
+  };
+
+  const handleEditAboutImage = (img: AboutImageItem) => {
+    setAboutImageForm({
+      id: img.id,
+      title: img.title,
+      caption: img.caption,
+      url: img.url,
+      category: img.category,
+      tag: img.tag || '',
+      year: img.year || '',
+    });
+    setEditingAboutImageId(img.id);
+    setIsAddingAboutImage(true);
+  };
+
+  const handleDeleteAboutImage = (id: string, title: string) => {
+    if (confirm(`Remove "${title}" from About page?`)) {
+      const currentImages = profile.aboutImages || [];
+      const updated = currentImages.filter((img) => img.id !== id);
+      updateProfile({ aboutImages: updated });
+      showToast('Image removed from About page');
+    }
+  };
+
+  const handleMoveAboutImage = (idx: number, direction: 'up' | 'down') => {
+    const currentImages = [...(profile.aboutImages || [])];
+    const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
+    if (targetIdx < 0 || targetIdx >= currentImages.length) return;
+    const temp = currentImages[idx];
+    currentImages[idx] = currentImages[targetIdx];
+    currentImages[targetIdx] = temp;
+    updateProfile({ aboutImages: currentImages });
+    showToast('Images reordered');
+  };
+
+  const handleUpdateHeroCard = (index: number, updatedFields: Partial<HeroCardItem>) => {
+    const currentCards = [...(profile.heroCards || [])];
+    if (!currentCards[index]) return;
+    if (updatedFields.image) {
+      updatedFields.image = getDirectDriveUrl(updatedFields.image);
+    }
+    currentCards[index] = { ...currentCards[index], ...updatedFields };
+    updateProfile({ heroCards: currentCards });
+    showToast('Hero card updated');
   };
 
   // Backup import helper
@@ -423,6 +553,18 @@ export const Admin: React.FC = () => {
             >
               <FolderKanban className="w-3.5 h-3.5" />
               <span>Projects ({projects.length})</span>
+            </button>
+
+            <button
+              onClick={() => handleTabChange('images')}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-mono-tech uppercase tracking-wider transition-all whitespace-nowrap min-h-[36px] ${
+                activeTab === 'images'
+                  ? 'bg-indigo-600 text-white font-bold shadow'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <ImageIcon className="w-3.5 h-3.5" />
+              <span>Images & Media</span>
             </button>
 
             <button
@@ -819,6 +961,577 @@ export const Admin: React.FC = () => {
                   </div>
                 ) : (
                   <p className="text-xs text-slate-400">No project selected.</p>
+                )}
+              </div>
+            )}
+
+            {/* ------------------------------------------------------------- */}
+            {/* TAB: IMAGES & MEDIA CMS                                       */}
+            {/* ------------------------------------------------------------- */}
+            {activeTab === 'images' && (
+              <div className="space-y-6">
+                {/* Header */}
+                <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-white/10">
+                  <div>
+                    <h2 className="text-base font-sans font-bold text-white tracking-tight flex items-center gap-2">
+                      <ImageIcon className="w-4 h-4 text-indigo-400" />
+                      <span>Visual Media & Image System</span>
+                    </h2>
+                    <p className="text-xs text-slate-400">
+                      Manage hero deck portraits, front avatars, and the About page visual moments gallery.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Sub-tab Navigation */}
+                <div className="flex items-center gap-2 p-1.5 rounded-2xl bg-white/5 border border-white/10">
+                  <button
+                    onClick={() => {
+                      setImageSubTab('home');
+                      setPreviewSection('home');
+                    }}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-mono-tech uppercase tracking-wider transition-all ${
+                      imageSubTab === 'home'
+                        ? 'bg-indigo-600 text-white font-bold shadow-md'
+                        : 'text-slate-400 hover:text-white hover:bg-white/5'
+                    }`}
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Home Page Deck & Portraits</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setImageSubTab('about');
+                      setPreviewSection('about');
+                    }}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-mono-tech uppercase tracking-wider transition-all ${
+                      imageSubTab === 'about'
+                        ? 'bg-indigo-600 text-white font-bold shadow-md'
+                        : 'text-slate-400 hover:text-white hover:bg-white/5'
+                    }`}
+                  >
+                    <Camera className="w-3.5 h-3.5" />
+                    <span>About Page Gallery ({profile.aboutImages?.length || 0})</span>
+                  </button>
+                </div>
+
+                {/* SUB-TAB 1: HOME PAGE IMAGES & DECK */}
+                {imageSubTab === 'home' && (
+                  <div className="space-y-6">
+                    {/* Primary Editorial Portrait Card */}
+                    <div className="p-5 rounded-2xl bg-[#14141a] border border-white/10 space-y-4">
+                      <div className="flex items-start justify-between gap-2 pb-3 border-b border-white/10">
+                        <div>
+                          <span className="px-2 py-0.5 rounded bg-indigo-600/30 text-indigo-300 text-[10px] font-mono-tech font-bold uppercase">
+                            Primary Portrait
+                          </span>
+                          <h3 className="text-sm font-sans font-bold text-white mt-1">
+                            Front Hero Avatar & Nav Indicator
+                          </h3>
+                        </div>
+                        <span className="text-[10px] font-mono-tech text-emerald-400 bg-emerald-950/40 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                          Live Synced
+                        </span>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row items-start gap-4">
+                        <div className="relative w-24 h-28 shrink-0 rounded-xl overflow-hidden border border-white/20 bg-black/40 shadow-inner">
+                          <img
+                            src={profile.portraitUrl}
+                            alt="Front Portrait"
+                            className="w-full h-full object-cover"
+                            referrerPolicy="no-referrer"
+                            onError={(e) => {
+                              (e.target as HTMLElement).style.display = 'none';
+                            }}
+                          />
+                        </div>
+
+                        <div className="flex-1 space-y-3 w-full">
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <label className="text-xs font-mono-tech uppercase text-slate-400">
+                                Portrait URL (Direct CDN or Google Drive Link)
+                              </label>
+                              <span className="text-[10px] font-mono-tech text-indigo-400">
+                                Auto-converts Drive links
+                              </span>
+                            </div>
+                            <input
+                              type="text"
+                              value={profile.portraitUrl}
+                              onChange={(e) => {
+                                const direct = getDirectDriveUrl(e.target.value);
+                                updateProfile({ portraitUrl: direct, avatarUrl: direct });
+                                showToast('Hero portrait updated');
+                              }}
+                              placeholder="https://..."
+                              className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono-tech focus:border-indigo-500 focus:outline-none"
+                            />
+                          </div>
+                          <p className="text-[11px] text-slate-400 leading-relaxed">
+                            Powers the top navigation status badge, the mobile header avatar, and the front active card in the interactive 3D hero card deck.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Interactive Hero Deck Persona Cards */}
+                    <div className="p-5 rounded-2xl bg-[#14141a] border border-white/10 space-y-4">
+                      <div className="flex items-center justify-between pb-3 border-b border-white/10">
+                        <div>
+                          <span className="px-2 py-0.5 rounded bg-blue-600/30 text-blue-300 text-[10px] font-mono-tech font-bold uppercase">
+                            Deck Personas
+                          </span>
+                          <h3 className="text-sm font-sans font-bold text-white mt-1">
+                            Interactive 3D Hero Cards (5 Layers)
+                          </h3>
+                        </div>
+                        <span className="text-[10px] font-mono-tech text-slate-400">
+                          Click cards on Home to flip & inspect
+                        </span>
+                      </div>
+
+                      <p className="text-xs text-slate-400 leading-relaxed">
+                        Customize each role card in the interactive hero deck on the Home page. Change the portrait image, badge name, title, or subtitle.
+                      </p>
+
+                      <div className="space-y-4">
+                        {(profile.heroCards || []).map((card, idx) => (
+                          <div
+                            key={card.id || idx}
+                            className="p-4 rounded-xl bg-white/[0.02] border border-white/10 space-y-3 hover:border-white/20 transition-all"
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <span className="w-5 h-5 rounded-full bg-indigo-900/60 border border-indigo-500/40 text-indigo-300 text-[10px] font-mono-tech flex items-center justify-center font-bold">
+                                  0{idx + 1}
+                                </span>
+                                <span className="text-xs font-mono-tech uppercase font-bold text-white">
+                                  {card.roleBadge || `Persona #${idx + 1}`}
+                                </span>
+                              </div>
+                              <span className="text-[10px] font-mono-tech text-indigo-400">
+                                {card.subtitle}
+                              </span>
+                            </div>
+
+                            <div className="flex flex-col sm:flex-row items-start gap-3">
+                              {/* Thumbnail preview */}
+                              <div className="relative w-16 h-20 shrink-0 rounded-lg overflow-hidden border border-white/15 bg-black/40">
+                                <img
+                                  src={card.image}
+                                  alt={card.title}
+                                  className="w-full h-full object-cover"
+                                  referrerPolicy="no-referrer"
+                                  onError={(e) => {
+                                    (e.target as HTMLElement).style.display = 'none';
+                                  }}
+                                />
+                              </div>
+
+                              <div className="flex-1 space-y-2.5 w-full">
+                                <div>
+                                  <label className="block text-[10px] font-mono-tech uppercase text-slate-400 mb-0.5">
+                                    Card Image URL
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={card.image}
+                                    onChange={(e) => handleUpdateHeroCard(idx, { image: e.target.value })}
+                                    placeholder="https://..."
+                                    className="w-full px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/15 text-white text-xs font-mono-tech focus:border-indigo-500 focus:outline-none"
+                                  />
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                  <div>
+                                    <label className="block text-[10px] font-mono-tech uppercase text-slate-400 mb-0.5">
+                                      Role Badge Label
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={card.roleBadge}
+                                      onChange={(e) => handleUpdateHeroCard(idx, { roleBadge: e.target.value })}
+                                      className="w-full px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/15 text-white text-xs font-mono-tech focus:border-indigo-500 focus:outline-none"
+                                    />
+                                  </div>
+
+                                  <div>
+                                    <label className="block text-[10px] font-mono-tech uppercase text-slate-400 mb-0.5">
+                                      Subtitle / Persona Name
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={card.subtitle}
+                                      onChange={(e) => handleUpdateHeroCard(idx, { subtitle: e.target.value })}
+                                      className="w-full px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/15 text-white text-xs font-mono-tech focus:border-indigo-500 focus:outline-none"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Featured Case Study Cover Images on Home */}
+                    <div className="p-5 rounded-2xl bg-[#14141a] border border-white/10 space-y-4">
+                      <div className="flex items-center justify-between pb-3 border-b border-white/10">
+                        <div>
+                          <span className="px-2 py-0.5 rounded bg-emerald-600/30 text-emerald-300 text-[10px] font-mono-tech font-bold uppercase">
+                            Home Featured Grid
+                          </span>
+                          <h3 className="text-sm font-sans font-bold text-white mt-1">
+                            Case Study Cover Images
+                          </h3>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        {projects.filter((p) => p.featured).map((proj) => (
+                          <div
+                            key={proj.id}
+                            className="p-3 rounded-xl bg-white/[0.02] border border-white/10 flex flex-col sm:flex-row items-start sm:items-center gap-3"
+                          >
+                            <div className="w-16 h-12 rounded-lg overflow-hidden shrink-0 border border-white/10 bg-black/40">
+                              <img
+                                src={proj.heroImage}
+                                alt={proj.title}
+                                className="w-full h-full object-cover"
+                                referrerPolicy="no-referrer"
+                              />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs font-bold text-white truncate">{proj.title}</div>
+                              <div className="text-[10px] font-mono-tech text-indigo-400 truncate">
+                                {proj.category} · #{proj.projectNumber}
+                              </div>
+                            </div>
+                            <div className="w-full sm:w-60">
+                              <input
+                                type="text"
+                                value={proj.heroImage}
+                                onChange={(e) => {
+                                  const direct = getDirectDriveUrl(e.target.value);
+                                  updateProjectField(proj.id, 'heroImage', direct);
+                                  showToast('Project cover image updated');
+                                }}
+                                placeholder="Image URL..."
+                                className="w-full px-2.5 py-1 rounded-lg bg-white/5 border border-white/15 text-white text-xs font-mono-tech focus:border-indigo-500 focus:outline-none"
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* SUB-TAB 2: ABOUT PAGE PRODUCTION GALLERY */}
+                {imageSubTab === 'about' && (
+                  <div className="space-y-6">
+                    {/* Header bar with Add Button */}
+                    <div className="p-5 rounded-2xl bg-[#14141a] border border-white/10 space-y-4">
+                      <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-white/10">
+                        <div>
+                          <span className="px-2 py-0.5 rounded bg-indigo-600/30 text-indigo-300 text-[10px] font-mono-tech font-bold uppercase">
+                            About Page Archive
+                          </span>
+                          <h3 className="text-sm font-sans font-bold text-white mt-1">
+                            Visual Moments in Practice Gallery
+                          </h3>
+                        </div>
+
+                        {!isAddingAboutImage && (
+                          <button
+                            onClick={() => {
+                              setEditingAboutImageId(null);
+                              setAboutImageForm({
+                                id: '',
+                                title: '',
+                                caption: '',
+                                url: '',
+                                category: 'On-Set & Direction',
+                                tag: '',
+                                year: new Date().getFullYear().toString(),
+                              });
+                              setIsAddingAboutImage(true);
+                            }}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white text-black text-xs font-mono-tech uppercase tracking-wider font-bold hover:bg-neutral-200 transition-colors"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Add New Image</span>
+                          </button>
+                        )}
+                      </div>
+
+                      <p className="text-xs text-slate-400 leading-relaxed">
+                        Curate the photographs showcasing real-world on-set direction, studio vocal recording, design systems, and clinic launches rendered on the About page.
+                      </p>
+                    </div>
+
+                    {/* Add / Edit Form Modal/Card */}
+                    {isAddingAboutImage && (
+                      <form
+                        onSubmit={handleSaveAboutImage}
+                        className="p-5 rounded-2xl bg-[#161622] border-2 border-indigo-500/50 shadow-xl space-y-4"
+                      >
+                        <div className="flex items-center justify-between pb-3 border-b border-white/10">
+                          <h4 className="text-sm font-sans font-bold text-white flex items-center gap-2">
+                            <Camera className="w-4 h-4 text-indigo-400" />
+                            <span>
+                              {editingAboutImageId ? 'Edit Image Artifact' : 'Add New Visual Moment'}
+                            </span>
+                          </h4>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsAddingAboutImage(false);
+                              setEditingAboutImageId(null);
+                            }}
+                            className="text-xs font-mono-tech text-slate-400 hover:text-white"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs font-mono-tech uppercase text-slate-400 mb-1">
+                              Image Title *
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              value={aboutImageForm.title}
+                              onChange={(e) =>
+                                setAboutImageForm({ ...aboutImageForm, title: e.target.value })
+                              }
+                              placeholder="e.g. On-Set Video Direction"
+                              className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-sans focus:border-indigo-500 focus:outline-none"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-mono-tech uppercase text-slate-400 mb-1">
+                              Category Filter
+                            </label>
+                            <select
+                              value={aboutImageForm.category}
+                              onChange={(e) =>
+                                setAboutImageForm({ ...aboutImageForm, category: e.target.value })
+                              }
+                              className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/15 text-white text-xs font-mono-tech focus:border-indigo-500 focus:outline-none"
+                            >
+                              <option value="On-Set & Direction">On-Set & Direction</option>
+                              <option value="Studio & Audio">Studio & Audio</option>
+                              <option value="Design & Tech">Design & Tech</option>
+                              <option value="Clinic Launches">Clinic Launches</option>
+                              <option value="Behind the Scenes">Behind the Scenes</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="text-xs font-mono-tech uppercase text-slate-400">
+                              Image URL (Direct CDN link or Google Drive Share Link) *
+                            </label>
+                            <span className="text-[10px] font-mono-tech text-indigo-400">
+                              Drive links auto-converted
+                            </span>
+                          </div>
+                          <input
+                            type="text"
+                            required
+                            value={aboutImageForm.url}
+                            onChange={(e) =>
+                              setAboutImageForm({ ...aboutImageForm, url: e.target.value })
+                            }
+                            placeholder="https://images.unsplash.com/... or Google Drive URL"
+                            className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono-tech focus:border-indigo-500 focus:outline-none"
+                          />
+                        </div>
+
+                        {/* Live Thumbnail Preview */}
+                        {aboutImageForm.url && (
+                          <div className="flex items-center gap-3 p-3 rounded-xl bg-black/40 border border-white/10">
+                            <div className="w-16 h-16 rounded-lg overflow-hidden shrink-0 border border-white/20 bg-neutral-900">
+                              <img
+                                src={getDirectDriveUrl(aboutImageForm.url)}
+                                alt="Preview"
+                                className="w-full h-full object-cover"
+                                referrerPolicy="no-referrer"
+                                onError={(e) => {
+                                  (e.target as HTMLElement).style.display = 'none';
+                                }}
+                              />
+                            </div>
+                            <div className="text-xs text-slate-400">
+                              <span className="text-white font-mono-tech text-xs block">
+                                Live URL preview verified
+                              </span>
+                              <span>Will render in the high-res gallery and interactive lightbox.</span>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs font-mono-tech uppercase text-slate-400 mb-1">
+                              Year (e.g. 2025)
+                            </label>
+                            <input
+                              type="text"
+                              value={aboutImageForm.year}
+                              onChange={(e) =>
+                                setAboutImageForm({ ...aboutImageForm, year: e.target.value })
+                              }
+                              className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono-tech focus:border-indigo-500 focus:outline-none"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-mono-tech uppercase text-slate-400 mb-1">
+                              Tag Badge (e.g. Video Production, Creative Tech)
+                            </label>
+                            <input
+                              type="text"
+                              value={aboutImageForm.tag}
+                              onChange={(e) =>
+                                setAboutImageForm({ ...aboutImageForm, tag: e.target.value })
+                              }
+                              placeholder="e.g. Cinematography"
+                              className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-mono-tech focus:border-indigo-500 focus:outline-none"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-mono-tech uppercase text-slate-400 mb-1">
+                            Caption & Narrative Context
+                          </label>
+                          <textarea
+                            rows={3}
+                            value={aboutImageForm.caption}
+                            onChange={(e) =>
+                              setAboutImageForm({ ...aboutImageForm, caption: e.target.value })
+                            }
+                            placeholder="Explain the background story, workflow, or tools used in this capture..."
+                            className="w-full px-3 py-2 rounded-xl bg-white/5 border border-white/15 text-white text-xs font-sans focus:border-indigo-500 focus:outline-none resize-none"
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-end gap-3 pt-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsAddingAboutImage(false);
+                              setEditingAboutImageId(null);
+                            }}
+                            className="px-4 py-2 rounded-xl bg-white/5 text-slate-300 text-xs font-mono-tech uppercase hover:bg-white/10 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="submit"
+                            className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-indigo-600 text-white text-xs font-mono-tech font-bold uppercase hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-900/30"
+                          >
+                            <Save className="w-3.5 h-3.5" />
+                            <span>{editingAboutImageId ? 'Update Image' : 'Save Image to Gallery'}</span>
+                          </button>
+                        </div>
+                      </form>
+                    )}
+
+                    {/* Gallery Images List */}
+                    <div className="space-y-3">
+                      {(profile.aboutImages || []).length === 0 ? (
+                        <div className="p-10 text-center rounded-2xl bg-[#14141a] border border-dashed border-white/10 space-y-2">
+                          <Camera className="w-8 h-8 text-slate-500 mx-auto" />
+                          <p className="text-xs text-slate-400">
+                            No images in the About gallery yet. Click "Add New Image" to add one.
+                          </p>
+                        </div>
+                      ) : (
+                        (profile.aboutImages || []).map((img, idx) => (
+                          <div
+                            key={img.id || idx}
+                            className="p-4 rounded-xl bg-[#14141a] border border-white/10 hover:border-white/20 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+                          >
+                            <div className="flex items-start gap-3 min-w-0">
+                              <div className="relative w-16 h-16 shrink-0 rounded-xl overflow-hidden border border-white/15 bg-black/40">
+                                <img
+                                  src={img.url}
+                                  alt={img.title}
+                                  className="w-full h-full object-cover"
+                                  referrerPolicy="no-referrer"
+                                  onError={(e) => {
+                                    (e.target as HTMLElement).style.display = 'none';
+                                  }}
+                                />
+                              </div>
+
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <h4 className="text-xs font-sans font-bold text-white truncate">
+                                    {img.title}
+                                  </h4>
+                                  <span className="px-2 py-0.5 rounded-full bg-indigo-950/80 border border-indigo-500/40 text-indigo-300 text-[10px] font-mono-tech font-bold uppercase">
+                                    {img.category}
+                                  </span>
+                                  {img.year && (
+                                    <span className="text-[10px] font-mono-tech text-slate-400">
+                                      {img.year}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-[11px] text-slate-400 line-clamp-2 mt-1">
+                                  {img.caption}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Actions */}
+                            <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
+                              <button
+                                onClick={() => handleMoveAboutImage(idx, 'up')}
+                                disabled={idx === 0}
+                                className="p-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                                title="Move Up"
+                              >
+                                <ArrowUp className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleMoveAboutImage(idx, 'down')}
+                                disabled={idx === (profile.aboutImages || []).length - 1}
+                                className="p-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                                title="Move Down"
+                              >
+                                <ArrowDown className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleEditAboutImage(img)}
+                                className="px-2.5 py-1.5 rounded-lg bg-white/10 text-white text-xs font-mono-tech uppercase hover:bg-white/20 transition-colors"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleDeleteAboutImage(img.id, img.title)}
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                                title="Delete Image"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
                 )}
               </div>
             )}

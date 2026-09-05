@@ -104,6 +104,26 @@ export interface FutureGoalItem {
   keyInitiatives: string[];
 }
 
+export interface HeroCardItem {
+  id: string;
+  title: string;
+  subtitle: string;
+  tag: string;
+  image: string;
+  roleBadge: string;
+}
+
+export interface AboutImageItem {
+  id: string;
+  title: string;
+  caption: string;
+  url: string;
+  category: string;
+  tag?: string;
+  year?: string;
+  featured?: boolean;
+}
+
 export interface ProfileData {
   name: string;
   nickname: string;
@@ -131,6 +151,8 @@ export interface ProfileData {
   birthPlace?: string;
   narrativeActs?: NarrativeAct[];
   futureGoals?: FutureGoalItem[];
+  heroCards?: HeroCardItem[];
+  aboutImages?: AboutImageItem[];
 }
 
 export interface AudioTrack {

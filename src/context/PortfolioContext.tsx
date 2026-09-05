@@ -133,6 +133,22 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (parsed.avatarUrl) {
           parsed.avatarUrl = getDirectDriveUrl(parsed.avatarUrl);
         }
+        if (!parsed.heroCards || parsed.heroCards.length === 0) {
+          parsed.heroCards = initialProfile.heroCards;
+        } else {
+          parsed.heroCards = parsed.heroCards.map((c: any) => ({
+            ...c,
+            image: getDirectDriveUrl(c.image),
+          }));
+        }
+        if (!parsed.aboutImages || parsed.aboutImages.length === 0) {
+          parsed.aboutImages = initialProfile.aboutImages;
+        } else {
+          parsed.aboutImages = parsed.aboutImages.map((img: any) => ({
+            ...img,
+            url: getDirectDriveUrl(img.url),
+          }));
+        }
         return parsed;
       }
       return initialProfile;
@@ -452,6 +468,18 @@ export const PortfolioProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }
       if (cleanedData.avatarUrl) {
         cleanedData.avatarUrl = getDirectDriveUrl(cleanedData.avatarUrl);
+      }
+      if (cleanedData.heroCards) {
+        cleanedData.heroCards = cleanedData.heroCards.map((c) => ({
+          ...c,
+          image: getDirectDriveUrl(c.image),
+        }));
+      }
+      if (cleanedData.aboutImages) {
+        cleanedData.aboutImages = cleanedData.aboutImages.map((img) => ({
+          ...img,
+          url: getDirectDriveUrl(img.url),
+        }));
       }
       const next = { ...prev, ...cleanedData };
       persistStorage(STORAGE_KEYS.PROFILE, next);

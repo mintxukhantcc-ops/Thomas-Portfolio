@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { usePortfolio } from '../context/PortfolioContext';
 import { NarrativeAct } from '../types';
 import { 
@@ -18,9 +19,16 @@ import {
   Layers,
   Award,
   ChevronRight,
+  ChevronLeft,
   Lightbulb,
   Clock,
-  Briefcase
+  Briefcase,
+  Camera,
+  Image as ImageIcon,
+  Maximize2,
+  X,
+  Filter,
+  Eye
 } from 'lucide-react';
 
 const philosophySteps = [
@@ -63,6 +71,32 @@ export const AboutView: React.FC = () => {
   const [viewMode, setViewMode] = useState<'chapters' | 'continuous'>('chapters');
 
   const currentAct = acts[selectedActIndex] || acts[0];
+
+  // Images Section State
+  const aboutImages = profile.aboutImages || [];
+  const categories = ['All', ...Array.from(new Set(aboutImages.map((img) => img.category).filter(Boolean)))];
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+
+  const filteredImages = selectedCategory === 'All'
+    ? aboutImages
+    : aboutImages.filter((img) => img.category === selectedCategory);
+
+  // Keyboard navigation for lightbox
+  useEffect(() => {
+    if (lightboxIndex === null) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setLightboxIndex(null);
+      if (e.key === 'ArrowRight') {
+        setLightboxIndex((prev) => (prev !== null && prev < filteredImages.length - 1 ? prev + 1 : 0));
+      }
+      if (e.key === 'ArrowLeft') {
+        setLightboxIndex((prev) => (prev !== null && prev > 0 ? prev - 1 : filteredImages.length - 1));
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [lightboxIndex, filteredImages.length]);
 
   const jumpToProject = (projectId: string) => {
     setSelectedProjectId(projectId);
@@ -474,6 +508,248 @@ export const AboutView: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* ========================================================= */}
+      {/* VISUAL DOCUMENTATION & MOMENTS ARCHIVE (IMAGES SECTION)   */}
+      {/* ========================================================= */}
+      {aboutImages.length > 0 && (
+        <div className="rounded-3xl bg-[#121217] border border-white/10 p-6 sm:p-10 shadow-2xl space-y-8">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-white/5 pb-6">
+            <div className="max-w-2xl">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-mono-tech uppercase tracking-wider mb-3">
+                <Camera className="w-3.5 h-3.5" />
+                <span>Production Archive & Field Documentation</span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-display font-extrabold text-white tracking-tight">
+                Visual Moments in Practice
+              </h2>
+              <p className="text-sm text-neutral-400 font-sans mt-2 leading-relaxed">
+                Behind-the-lens glimpses into clinic soft openings, on-set commercial directing, bilingual studio voiceovers, and generative design workshops.
+              </p>
+            </div>
+
+            {/* Total count badge */}
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs font-mono-tech text-neutral-300 shrink-0 self-start md:self-auto">
+              <ImageIcon className="w-4 h-4 text-indigo-400" />
+              <span>{filteredImages.length} of {aboutImages.length} Visual Artifacts</span>
+            </div>
+          </div>
+
+          {/* Category Filter Pills */}
+          {categories.length > 1 && (
+            <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+              <div className="flex items-center gap-1.5 text-xs font-mono-tech text-neutral-400 pr-2">
+                <Filter className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Filter:</span>
+              </div>
+              {categories.map((cat) => {
+                const count = cat === 'All' ? aboutImages.length : aboutImages.filter((img) => img.category === cat).length;
+                const isSelected = selectedCategory === cat;
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => setSelectedCategory(cat)}
+                    className={`px-3.5 py-1.5 rounded-full text-xs font-mono-tech uppercase tracking-wider transition-all whitespace-nowrap flex items-center gap-2 ${
+                      isSelected
+                        ? 'bg-indigo-600 text-white font-bold shadow-lg shadow-indigo-600/20 ring-1 ring-indigo-400/40'
+                        : 'bg-white/5 text-neutral-400 hover:text-white hover:bg-white/10 border border-white/5'
+                    }`}
+                  >
+                    <span>{cat}</span>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${isSelected ? 'bg-indigo-700 text-white' : 'bg-white/10 text-neutral-400'}`}>
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Images Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredImages.map((img, idx) => (
+              <motion.div
+                key={img.id || idx}
+                layout
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.35, delay: idx * 0.04 }}
+                onClick={() => setLightboxIndex(idx)}
+                className="group relative rounded-2xl overflow-hidden bg-[#16161c] border border-white/5 hover:border-indigo-500/40 transition-all duration-300 shadow-xl cursor-pointer flex flex-col"
+              >
+                {/* Image Container with aspect ratio */}
+                <div className="relative aspect-[16/10] w-full overflow-hidden bg-slate-900">
+                  <img
+                    src={img.url}
+                    alt={img.title}
+                    className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
+                    referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      e.currentTarget.src =
+                        'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=1200&q=80';
+                    }}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-black/20 opacity-80 group-hover:opacity-60 transition-opacity" />
+
+                  {/* Top Badges */}
+                  <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2 pointer-events-none">
+                    <span className="px-2.5 py-1 rounded-md bg-black/70 backdrop-blur-md border border-white/10 text-[10px] font-mono-tech uppercase tracking-wider text-indigo-300">
+                      {img.category}
+                    </span>
+                    {img.year && (
+                      <span className="px-2 py-0.5 rounded-md bg-white/10 backdrop-blur-md text-[10px] font-mono-tech text-white/80">
+                        {img.year}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Center Zoom Hover Indicator */}
+                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-indigo-950/40 backdrop-blur-[2px]">
+                    <div className="w-10 h-10 rounded-full bg-white text-black flex items-center justify-center shadow-2xl transform scale-90 group-hover:scale-100 transition-transform">
+                      <Maximize2 className="w-4 h-4" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Card Content */}
+                <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between space-y-2.5 bg-[#16161c]">
+                  <div>
+                    {img.tag && (
+                      <span className="text-[10px] font-mono-tech uppercase text-cyan-400 block mb-1">
+                        {img.tag}
+                      </span>
+                    )}
+                    <h3 className="text-sm sm:text-base font-display font-bold text-white group-hover:text-indigo-300 transition-colors line-clamp-1">
+                      {img.title}
+                    </h3>
+                  </div>
+                  <p className="text-xs text-neutral-400 font-sans line-clamp-2 leading-relaxed">
+                    {img.caption}
+                  </p>
+                  <div className="pt-2 border-t border-white/5 flex items-center justify-between text-[11px] font-mono-tech text-neutral-500">
+                    <span className="group-hover:text-neutral-300 transition-colors">Tap to view full resolution</span>
+                    <Eye className="w-3.5 h-3.5 text-neutral-500 group-hover:text-indigo-400 transition-colors" />
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Lightbox Modal */}
+      <AnimatePresence>
+        {lightboxIndex !== null && filteredImages[lightboxIndex] && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/95 backdrop-blur-xl flex flex-col justify-between p-4 sm:p-8 select-none"
+            onClick={() => setLightboxIndex(null)}
+          >
+            {/* Top Toolbar */}
+            <div 
+              className="flex items-center justify-between w-full max-w-6xl mx-auto z-10"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-mono-tech text-neutral-400">
+                  <span className="text-white font-bold">0{lightboxIndex + 1}</span>
+                  <span className="mx-1">/</span>
+                  <span>0{filteredImages.length}</span>
+                </span>
+                <span className="px-2.5 py-1 rounded-md bg-white/10 text-[10px] font-mono-tech uppercase text-indigo-300">
+                  {filteredImages[lightboxIndex].category}
+                </span>
+                {filteredImages[lightboxIndex].year && (
+                  <span className="text-xs font-mono-tech text-neutral-400 hidden sm:inline">
+                    {filteredImages[lightboxIndex].year}
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-mono-tech text-neutral-500 hidden sm:inline mr-2">
+                  Use ← → arrows or ESC to close
+                </span>
+                <button
+                  onClick={() => setLightboxIndex(null)}
+                  className="w-9 h-9 rounded-full bg-white/10 hover:bg-white text-white hover:text-black flex items-center justify-center transition-colors"
+                  aria-label="Close Lightbox"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Center Image & Nav Buttons */}
+            <div 
+              className="relative flex-1 flex items-center justify-center my-4 max-w-6xl mx-auto w-full overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Prev Button */}
+              <button
+                onClick={() =>
+                  setLightboxIndex((prev) =>
+                    prev !== null && prev > 0 ? prev - 1 : filteredImages.length - 1
+                  )
+                }
+                className="absolute left-2 sm:left-4 z-20 w-11 h-11 rounded-full bg-black/60 hover:bg-white text-white hover:text-black border border-white/15 flex items-center justify-center transition-all shadow-2xl backdrop-blur-md"
+                aria-label="Previous image"
+              >
+                <ChevronLeft className="w-6 h-6" />
+              </button>
+
+              {/* Main Image */}
+              <motion.div
+                key={filteredImages[lightboxIndex].id || lightboxIndex}
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.25 }}
+                className="relative max-h-[68vh] max-w-full flex items-center justify-center rounded-2xl overflow-hidden border border-white/15 shadow-2xl bg-black"
+              >
+                <img
+                  src={filteredImages[lightboxIndex].url}
+                  alt={filteredImages[lightboxIndex].title}
+                  className="max-h-[68vh] max-w-full w-auto h-auto object-contain"
+                  referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    e.currentTarget.src =
+                      'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=1200&q=80';
+                  }}
+                />
+              </motion.div>
+
+              {/* Next Button */}
+              <button
+                onClick={() =>
+                  setLightboxIndex((prev) =>
+                    prev !== null && prev < filteredImages.length - 1 ? prev + 1 : 0
+                  )
+                }
+                className="absolute right-2 sm:right-4 z-20 w-11 h-11 rounded-full bg-black/60 hover:bg-white text-white hover:text-black border border-white/15 flex items-center justify-center transition-all shadow-2xl backdrop-blur-md"
+                aria-label="Next image"
+              >
+                <ChevronRight className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Bottom Caption Bar */}
+            <div 
+              className="max-w-4xl mx-auto w-full p-4 sm:p-5 rounded-2xl bg-[#121217]/95 border border-white/10 backdrop-blur-md z-10 space-y-1 text-center"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-base sm:text-lg font-display font-bold text-white">
+                {filteredImages[lightboxIndex].title}
+              </h3>
+              <p className="text-xs sm:text-sm text-neutral-300 font-sans max-w-2xl mx-auto leading-relaxed">
+                {filteredImages[lightboxIndex].caption}
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ========================================================= */}
       {/* STRATEGIC FUTURE OUTLOOK (2026 & BEYOND)                  */}

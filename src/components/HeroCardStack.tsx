@@ -32,49 +32,70 @@ export const HeroCardStack: React.FC = () => {
     profile.avatarUrl ||
     portrait1;
 
-  // Curated 5 distinct persona portraits of Min Thu Khant (Thomas)
-  const initialCards: PortraitCard[] = [
-    {
-      id: 'portrait-primary',
-      title: profile.name,
-      subtitle: 'Creative Technologist',
-      tag: 'YANGON · AVAILABLE',
-      image: primaryPortrait,
-      roleBadge: 'CREATIVE TECH',
-    },
-    {
-      id: 'portrait-creative',
-      title: profile.name,
-      subtitle: 'UI/UX & Visual Direction',
-      tag: 'YANGON · AVAILABLE',
-      image: portrait2,
-      roleBadge: 'UI / UX CRAFT',
-    },
-    {
-      id: 'portrait-tech',
-      title: profile.name,
-      subtitle: 'Prompt Engineer & AI Specialist',
-      tag: 'YANGON · AVAILABLE',
-      image: portrait3,
-      roleBadge: 'NEURAL AI LAB',
-    },
-    {
-      id: 'portrait-studio',
-      title: profile.name,
-      subtitle: 'Content Strategist & Narrator',
-      tag: 'YANGON · AVAILABLE',
-      image: portrait4,
-      roleBadge: 'AUDIO & SCRIPT',
-    },
-    {
-      id: 'portrait-outdoor',
-      title: profile.name,
-      subtitle: 'Full-Stack Web Architect',
-      tag: 'YANGON · AVAILABLE',
-      image: portrait5,
-      roleBadge: 'FULL-STACK CLOUD',
-    },
-  ];
+  // Build canonical cards from profile.heroCards (or defaults)
+  const getCanonicalCards = React.useCallback((): PortraitCard[] => {
+    if (profile.heroCards && profile.heroCards.length > 0) {
+      return profile.heroCards.map((c, idx) => {
+        let img = c.image;
+        if (idx === 0 && (profile.portraitUrl || profile.avatarUrl)) {
+          img = profile.portraitUrl || profile.avatarUrl || img;
+        }
+        return {
+          id: c.id,
+          title: c.title || profile.name,
+          subtitle: c.subtitle,
+          tag: c.tag || 'YANGON · AVAILABLE',
+          image: img,
+          roleBadge: c.roleBadge,
+        };
+      });
+    }
+
+    return [
+      {
+        id: 'portrait-primary',
+        title: profile.name,
+        subtitle: 'Creative Technologist',
+        tag: 'YANGON · AVAILABLE',
+        image: primaryPortrait,
+        roleBadge: 'CREATIVE TECH',
+      },
+      {
+        id: 'portrait-creative',
+        title: profile.name,
+        subtitle: 'UI/UX & Visual Direction',
+        tag: 'YANGON · AVAILABLE',
+        image: portrait2,
+        roleBadge: 'UI / UX CRAFT',
+      },
+      {
+        id: 'portrait-tech',
+        title: profile.name,
+        subtitle: 'Prompt Engineer & AI Specialist',
+        tag: 'YANGON · AVAILABLE',
+        image: portrait3,
+        roleBadge: 'NEURAL AI LAB',
+      },
+      {
+        id: 'portrait-studio',
+        title: profile.name,
+        subtitle: 'Content Strategist & Narrator',
+        tag: 'YANGON · AVAILABLE',
+        image: portrait4,
+        roleBadge: 'AUDIO & SCRIPT',
+      },
+      {
+        id: 'portrait-outdoor',
+        title: profile.name,
+        subtitle: 'Full-Stack Web Architect',
+        tag: 'YANGON · AVAILABLE',
+        image: portrait5,
+        roleBadge: 'FULL-STACK CLOUD',
+      },
+    ];
+  }, [profile.heroCards, profile.portraitUrl, profile.avatarUrl, profile.name, primaryPortrait]);
+
+  const initialCards = getCanonicalCards();
 
   // Ordered cards array where cards[0] is ALWAYS the front active card
   const [cards, setCards] = useState<PortraitCard[]>(initialCards);
@@ -82,6 +103,20 @@ export const HeroCardStack: React.FC = () => {
   const [leavingCardId, setLeavingCardId] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(true);
   const [isHovered, setIsHovered] = useState(false);
+
+  // Synchronize cards dynamically whenever profile, heroCards or portraits update in the dashboard
+  useEffect(() => {
+    const updated = getCanonicalCards();
+    setCards((prev) => {
+      if (prev.length === updated.length) {
+        return prev.map((p) => {
+          const match = updated.find((u) => u.id === p.id);
+          return match ? { ...p, ...match } : p;
+        });
+      }
+      return updated;
+    });
+  }, [getCanonicalCards]);
 
   // Responsive dimensions for flawless mathematical centering on mobile, tablet & desktop
   const [dimensions, setDimensions] = useState({
@@ -204,8 +239,8 @@ export const HeroCardStack: React.FC = () => {
     };
   }, [isPlaying, isHovered, cards, isTransitioning]);
 
-  const activeCard = cards[0];
-  const activeOriginalIndex = initialCards.findIndex((c) => c.id === activeCard.id);
+  const activeCard = cards[0] || initialCards[0];
+  const activeOriginalIndex = Math.max(0, initialCards.findIndex((c) => c.id === activeCard?.id));
 
   return (
     <div 
